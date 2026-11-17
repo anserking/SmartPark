@@ -85,4 +85,24 @@ describe('navigation store', () => {
     expect(resetState.drivingRoute).toBeNull();
     expect(resetState.walkingRoute).toBeNull();
   });
+
+  it('clears destination-dependent journey data while retaining location and vehicle', () => {
+    const store = useNavigationStore.getState();
+    store.setCurrentLocation({ latitude: 24.9, longitude: 67.1 });
+    store.selectVehicleType('bike');
+    store.selectDestination(destination);
+    store.selectParking(parking);
+    store.startDriving(route);
+
+    useNavigationStore.getState().clearDestination();
+
+    const state = useNavigationStore.getState();
+    expect(state.status).toBe('idle');
+    expect(state.currentLocation).toEqual({ latitude: 24.9, longitude: 67.1 });
+    expect(state.vehicleType).toBe('bike');
+    expect(state.selectedDestination).toBeNull();
+    expect(state.selectedParking).toBeNull();
+    expect(state.drivingRoute).toBeNull();
+    expect(state.walkingRoute).toBeNull();
+  });
 });

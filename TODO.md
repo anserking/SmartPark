@@ -34,10 +34,9 @@ checked.
 7. [ ] **Ingesting a real Karachi road network** (`road-network-ingestion`)
     - Depends on: `geographic-data-services`, `dsa-engine`
     - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
-8. [ ] **Building destination search and autocomplete** (`destination-search`)
+8. [x] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
-   - Build the search API and debounced frontend autocomplete, result selection, destination details, geocoding/cache, and Trie-backed suggestions. Search must not rely only on a static list.
-   - Progress: Backend search/detail endpoints, persistence, provider error handling, and Trie-backed cached suggestions are implemented and covered by tests. Frontend autocomplete and destination selection remain.
+   - Added search/detail API endpoints with persistence, provider failure handling, Photon geocoding and caching, and Trie-backed suggestions. Added a debounced accessible frontend autocomplete with destination selection and details, optional location bias, and stale-request cancellation. Search is backed by geocoding, not a static list.
 9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
     - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.

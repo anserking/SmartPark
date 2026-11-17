@@ -1,10 +1,11 @@
 // @ts-nocheck
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useAuth } from '@/hooks/useAuth';
 import { getNearbyParkingSpots } from '@/services/parkingSpots';
 import { getActiveSessionForUser } from '@/services/parkingSessions';
+import { useNavigationStore } from '@/stores/navigationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +13,7 @@ import { MapPin, Clock, DollarSign, Car, AlertCircle, Loader2 } from 'lucide-rea
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import type { ParkingSpot, ParkingSession } from '@/types';
+import DestinationSearch from '@/components/DestinationSearch';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -28,6 +30,27 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { position, isLoading: locationLoading, error: locationError } = useGeolocation();
   const [selectedSpot, setSelectedSpot] = useState<ParkingSpot | null>(null);
+  const setCurrentLocation = useNavigationStore(
+    (state) => state.setCurrentLocation,
+  );
+  const searchBias = useMemo(
+    () =>
+      position
+        ? { latitude: position.latitude, longitude: position.longitude }
+        : undefined,
+    [position?.latitude, position?.longitude],
+  );
+  const destinationSearch = (
+    <DestinationSearch bias={searchBias} />
+  );
+
+  useEffect(() => {
+    setCurrentLocation(
+      position
+        ? { latitude: position.latitude, longitude: position.longitude }
+        : null,
+    );
+  }, [position?.latitude, position?.longitude, setCurrentLocation]);
 
   const { data: spots, isLoading: spotsLoading } = useQuery({
     queryKey: ['nearbySpots', position?.latitude, position?.longitude],
@@ -50,10 +73,13 @@ export default function DashboardPage() {
 
   if (locationLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Getting your location...</p>
+      <div className="space-y-6">
+        {destinationSearch}
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-muted-foreground">Getting your location...</p>
+          </div>
         </div>
       </div>
     );
@@ -61,39 +87,46 @@ export default function DashboardPage() {
 
   if (locationError) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-destructive" />
-              Location Access Required
-            </CardTitle>
-            <CardDescription>
-              Please enable location access to find nearby parking spots.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="space-y-6">
+        {destinationSearch}
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                Location Access Required
+              </CardTitle>
+              <CardDescription>
+                Please enable location access to find nearby parking spots.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     );
   }
 
   if (!position) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Location Not Available</CardTitle>
-            <CardDescription>
-              Unable to get your location. Please check your browser settings.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="space-y-6">
+        {destinationSearch}
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Card className="max-w-md">
+            <CardHeader>
+              <CardTitle>Location Not Available</CardTitle>
+              <CardDescription>
+                Unable to get your location. Please check your browser settings.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
+      {destinationSearch}
       <div>
         <h1 className="text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground mt-1">

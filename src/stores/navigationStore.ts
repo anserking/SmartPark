@@ -21,6 +21,7 @@ type NavigationData = {
 
 type NavigationActions = {
   setCurrentLocation: (location: Coordinate | null) => void;
+  clearDestination: () => void;
   selectDestination: (destination: Destination) => void;
   selectParking: (parking: ParkingFacility) => void;
   selectVehicleType: (vehicleType: VehicleType) => void;
@@ -55,6 +56,16 @@ function initialData(): NavigationData {
 export const useNavigationStore = create<NavigationState>((set, get) => ({
   ...initialData(),
   setCurrentLocation: (currentLocation) => set({ currentLocation }),
+  clearDestination: () =>
+    set((state) => ({
+      status: 'idle',
+      currentLocation: state.currentLocation,
+      selectedDestination: null,
+      selectedParking: null,
+      vehicleType: state.vehicleType,
+      drivingRoute: null,
+      walkingRoute: null,
+    })),
   selectDestination: (selectedDestination) =>
     set({
       status: 'destination_selected',
