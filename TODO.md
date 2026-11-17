@@ -1,8 +1,9 @@
 # SmartPark project todos
 
 These are the project tasks tracked for completing the MVP. The repository
-audit is complete; all remaining tasks are pending. Dependencies are listed so
-the work can be sequenced without blocking independent tasks.
+audit, architecture decisions, and backend/database foundation are complete;
+remaining tasks are pending or in progress. Dependencies are listed so the work
+can be sequenced without blocking independent tasks.
 
 Repository setup: the source is cloned into this folder. `origin` points to
 `https://github.com/anserking/SmartPark.git`; `upstream` retains the original
@@ -16,9 +17,9 @@ checked.
 2. [x] **Finalizing the implementation architecture** (`architecture-decisions`)
    - Depends on: `repo-audit`
    - Decision: keep React/TypeScript/Vite/Tailwind and retain Leaflet, since its existing map works and can display route GeoJSON without a costly migration. Add FastAPI and PostgreSQL/PostGIS; replace Firebase-backed parking data with backend APIs, use Zustand for navigation state, and keep routing credentials server-side. Remove unused Firebase-dependent user features from the core journey; implement only simple environment-configured protection for the minimal admin rather than adding complex authentication.
-3. [ ] **Establishing backend and database foundations** (`backend-database-foundation`)
+3. [x] **Establishing backend and database foundations** (`backend-database-foundation`)
    - Depends on: `architecture-decisions`
-   - Set up FastAPI, configuration, health endpoint, PostgreSQL/PostGIS, SQLAlchemy models/schema, and spatial and lookup indexes.
+   - Added the FastAPI service, environment-based settings, database-aware health endpoint, SQLAlchemy 2 models, PostGIS/Alembic initial schema, local setup instructions, and Python ignores. Verified with 2 passing tests, Python compilation, and offline SQL migration generation. Applying the migration against a live PostGIS database remains unverified because none is configured here.
 4. [ ] **Establishing the frontend foundation** (`frontend-foundation`)
    - Depends on: `architecture-decisions`
    - Adapt the app structure, API client, shared types, and Zustand navigation state while preserving useful components and keeping the app buildable.
