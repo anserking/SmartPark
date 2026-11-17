@@ -1,10 +1,3 @@
-import os
-
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+psycopg://test:test@localhost:5432/smartpark_test",
-)
-
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
