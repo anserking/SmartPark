@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build --outDir dist",
     "lint": "bunx biome lint --write && bunx tsc --noEmit",
     "format": "bunx biome format --write",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@faker-js/faker": "^9.7.0",
@@ -50,12 +51,12 @@
     "@babel/code-frame": "^7.29.0",
     "@biomejs/biome": "1.9.4",
     "@eslint/js": "^9.18.0",
+    "@types/leaflet": "^1.9.16",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "@vitejs/plugin-react": "^4.3.4",
-    "@types/leaflet": "^1.9.16",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -71,6 +72,7 @@
     "tailwindcss": "^3.4.1",
     "typescript": "~5.6.2",
     "typescript-eslint": "^8.20.0",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^5.1.0"
   }
 }

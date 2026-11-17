@@ -2,7 +2,8 @@
 
 These are the project tasks tracked for completing the MVP. The repository
 audit, architecture decisions, backend/database foundation, and geographic data
-services are complete; remaining tasks are pending or in progress. Dependencies
+services, DSA algorithms, and frontend foundation are complete; remaining tasks
+are pending or in progress. Dependencies
 are listed so the work can be sequenced without blocking independent tasks.
 
 Repository setup: the source is cloned into this folder. `origin` points to
@@ -20,9 +21,9 @@ checked.
 3. [x] **Establishing backend and database foundations** (`backend-database-foundation`)
    - Depends on: `architecture-decisions`
    - Added the FastAPI service, environment-based settings, database-aware health endpoint, SQLAlchemy 2 models, PostGIS/Alembic initial schema, local setup instructions, and Python ignores. Verified with 2 passing tests, Python compilation, and offline SQL migration generation. Applying the migration against a live PostGIS database remains unverified because none is configured here.
-4. [ ] **Establishing the frontend foundation** (`frontend-foundation`)
+4. [x] **Establishing the frontend foundation** (`frontend-foundation`)
     - Depends on: `architecture-decisions`
-    - Adapt the app structure, API client, shared types, and Zustand navigation state while preserving useful components and keeping the app buildable.
+    - Added a Fetch API client with Zod response validation, shared SmartPark types, and the Zustand navigation state machine with guarded driving/parking/walking transitions. Added two state tests; `npm test` and the production build pass. The original lockfile was out of sync, so `npm install` repaired it; npm reported 29 dependency advisories, not auto-fixed.
 5. [x] **Implementing geographic data services** (`geographic-data-services`)
    - Depends on: `backend-database-foundation`
    - Added Photon geocoding and Overpass clients for node/way/relation parking queries, with process-local TTL caching, provider timeout/rate-limit errors, OSM-ID deduplication, and geometry normalization that preserves closed areas and relation holes instead of reducing every result to a point. Added offline tests for geocoding, queries, deduplication, area geometry, and rate-limit metadata; all 8 backend tests pass.
