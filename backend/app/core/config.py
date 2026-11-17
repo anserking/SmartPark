@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -6,6 +7,13 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str
     cors_origins: list[str] = ["http://localhost:5173"]
+    overpass_url: str = "https://overpass-api.de/api/interpreter"
+    photon_url: str = "https://photon.komoot.io/api/"
+    provider_timeout_seconds: float = Field(default=25, gt=0)
+    geodata_cache_ttl_seconds: int = Field(default=21600, gt=0)
+    provider_user_agent: str = (
+        "SmartPark/1.0 (https://github.com/anserking/SmartPark)"
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

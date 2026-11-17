@@ -26,6 +26,14 @@ The health endpoint is `http://localhost:8000/api/health`. It checks both the
 API and its database connection. Configure `CORS_ORIGINS` as a JSON array when
 the frontend runs from a different origin.
 
+## Geographic providers
+
+The backend uses Photon for destination geocoding and Overpass for OpenStreetMap
+parking discovery. Provider results are normalized and cached in process for
+`GEODATA_CACHE_TTL_SECONDS`; provider failures and rate limits are surfaced to
+API callers. Respect provider usage policies and include OpenStreetMap
+attribution in the app.
+
 ## Tests
 
 ```powershell
