@@ -58,6 +58,38 @@ def test_graph_builder_respects_one_way_and_access_for_modes() -> None:
     assert dijkstra_tree(car_graph, 2).distance_to(3) is None
 
 
+def test_graph_builder_respects_mode_specific_access_and_bicycle_one_way() -> None:
+    edges = [
+        RoadEdgeRecord(
+            1,
+            2,
+            5,
+            one_way=True,
+            car_access="yes",
+            bike_access="yes",
+            foot_access="yes",
+            bike_one_way=False,
+        ),
+        RoadEdgeRecord(
+            2,
+            3,
+            7,
+            car_access="no",
+            bike_access="no",
+            foot_access="yes",
+        ),
+    ]
+
+    car_graph = build_weighted_graph([1, 2, 3], edges, "car")
+    bike_graph = build_weighted_graph([1, 2, 3], edges, "bike")
+    walking_graph = build_weighted_graph([1, 2, 3], edges, "walk")
+
+    assert dijkstra_tree(car_graph, 2).distance_to(1) is None
+    assert dijkstra_tree(bike_graph, 2).distance_to(1) == 5
+    assert dijkstra_tree(car_graph, 2).distance_to(3) is None
+    assert dijkstra_tree(walking_graph, 2).distance_to(3) == 7
+
+
 def test_parking_ranking_filters_known_incompatibility_and_unreachable() -> None:
     graph = WeightedGraph()
     graph.add_edge(1, 2, 200, bidirectional=True)

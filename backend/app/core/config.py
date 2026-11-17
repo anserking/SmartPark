@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     photon_url: str = "https://photon.komoot.io/api/"
     provider_timeout_seconds: float = Field(default=25, gt=0)
+    road_network_timeout_seconds: int = Field(default=60, gt=0)
     geodata_cache_ttl_seconds: int = Field(default=21600, gt=0)
     provider_user_agent: str = (
         "SmartPark/1.0 (https://github.com/anserking/SmartPark)"

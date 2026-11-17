@@ -26,6 +26,22 @@ The health endpoint is `http://localhost:8000/api/health`. It checks both the
 API and its database connection. Configure `CORS_ORIGINS` as a JSON array when
 the frontend runs from a different origin.
 
+## Karachi road network
+
+After applying the database migrations, run the repeatable, bounded import from
+the `backend` directory:
+
+```powershell
+python -m app.ingest_road_network
+```
+
+The importer geocodes Bahria University Karachi, Saddar, and Clifton, then
+retrieves OSM roads within a 2 km radius of each result. It stores OSM
+intersection IDs and directed segments with calculated distances and
+mode-specific access tags. It downloads and validates all three regions before
+atomically replacing the existing road-network tables. Run it manually when
+refreshing OSM data; normal map interactions do not make these requests.
+
 ## Destination search
 
 `GET /api/destinations/search` geocodes a destination with Photon, stores

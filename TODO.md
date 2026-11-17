@@ -34,6 +34,7 @@ checked.
 7. [ ] **Ingesting a real Karachi road network** (`road-network-ingestion`)
     - Depends on: `geographic-data-services`, `dsa-engine`
     - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
+    - Progress: added a bounded Overpass query with caching, OSM node/way normalization, per-mode access and direction handling, an atomic repeatable import script, and a migration for mode-specific road access. Tests and offline migration generation pass. Live retrieval could not be verified because the configured Overpass endpoint timed out/returned 502 and no PostGIS connection is configured.
 8. [x] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
    - Added search/detail API endpoints with persistence, provider failure handling, Photon geocoding and caching, and Trie-backed suggestions. Added a debounced accessible frontend autocomplete with destination selection and details, optional location bias, and stale-request cancellation. Search is backed by geocoding, not a static list.

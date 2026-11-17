@@ -38,3 +38,7 @@ class RoadEdge(Base):
     road_type: Mapped[str | None] = mapped_column(String(80))
     access_type: Mapped[str | None] = mapped_column(String(80))
     one_way: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    car_access: Mapped[str | None] = mapped_column(String(80))
+    bike_access: Mapped[str | None] = mapped_column(String(80))
+    foot_access: Mapped[str | None] = mapped_column(String(80))
+    bike_one_way: Mapped[bool | None] = mapped_column(Boolean)
