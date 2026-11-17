@@ -1,0 +1,54 @@
+# SmartPark project todos
+
+These are the project tasks tracked for completing the MVP. The repository
+audit is complete; all remaining tasks are pending. Dependencies are listed so
+the work can be sequenced without blocking independent tasks.
+
+Repository setup: the source is cloned into this folder. `origin` points to
+`https://github.com/anserking/SmartPark.git`; `upstream` retains the original
+`Johnkelvin-J/parking` source. The target repository had no branch refs when
+checked.
+
+1. [x] **Auditing the existing repository** (`repo-audit`)
+   - Inspect the source tree, README, dependencies, architecture, Firebase, map/search/navigation workflows, license, tests, and technical debt.
+   - Findings: React 18, TypeScript, Vite, Tailwind/shadcn UI, Leaflet maps, TanStack Query, and Firebase auth/Firestore/storage. The existing map, geolocation hook, parking spot types/services, layout, and UI controls are reusable; there is no destination geocoding, routing, FastAPI/PostGIS backend, DSA engine, or test suite. `DashboardPage.tsx` and `ParkingSpotsPage.tsx` disable TypeScript checking. README claims MIT, but no license file was present in the clone.
+   - The source was cloned from `Johnkelvin-J/parking`; the current folder initially contained only `Skills/context.md` and this checklist.
+2. [x] **Finalizing the implementation architecture** (`architecture-decisions`)
+   - Depends on: `repo-audit`
+   - Decision: keep React/TypeScript/Vite/Tailwind and retain Leaflet, since its existing map works and can display route GeoJSON without a costly migration. Add FastAPI and PostgreSQL/PostGIS; replace Firebase-backed parking data with backend APIs, use Zustand for navigation state, and keep routing credentials server-side. Remove unused Firebase-dependent user features from the core journey; implement only simple environment-configured protection for the minimal admin rather than adding complex authentication.
+3. [ ] **Establishing backend and database foundations** (`backend-database-foundation`)
+   - Depends on: `architecture-decisions`
+   - Set up FastAPI, configuration, health endpoint, PostgreSQL/PostGIS, SQLAlchemy models/schema, and spatial and lookup indexes.
+4. [ ] **Establishing the frontend foundation** (`frontend-foundation`)
+   - Depends on: `architecture-decisions`
+   - Adapt the app structure, API client, shared types, and Zustand navigation state while preserving useful components and keeping the app buildable.
+5. [ ] **Implementing geographic data services** (`geographic-data-services`)
+   - Depends on: `backend-database-foundation`
+   - Add geocoding and Overpass parking discovery; normalize node/way/relation geometries, deduplicate OSM IDs, cache results, retain provenance, represent availability honestly, and prepare repeatable Karachi-area data ingestion.
+6. [ ] **Implementing required DSA algorithms** (`dsa-engine`)
+   - Depends on: `backend-database-foundation`
+   - Implement and test a normalized Trie, adjacency-list graph, binary-heap Dijkstra with path reconstruction and unreachable handling, hash-based lookups, heap ranking, and merge sort where practical. Document complexity and use real road data where available.
+7. [ ] **Building destination search and autocomplete** (`destination-search`)
+   - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
+   - Build the search API and debounced frontend autocomplete, result selection, destination details, geocoding/cache, and Trie-backed suggestions. Search must not rely only on a static list.
+8. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
+   - Depends on: `geographic-data-services`, `dsa-engine`
+   - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
+9. [ ] **Building the interactive map experience** (`interactive-map`)
+   - Depends on: `frontend-foundation`
+   - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
+10. [ ] **Integrating driving and walking routes** (`routing-integration`)
+    - Depends on: `backend-database-foundation`
+    - Integrate OpenRouteService on the backend; return normalized route GeoJSON, distance, and duration for driving and walking. Handle credentials/provider errors and document bike-profile limitations.
+11. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
+    - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
+    - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.
+12. [ ] **Building parking administration tools** (`parking-administration`)
+    - Depends on: `backend-database-foundation`, `geographic-data-services`
+    - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.
+13. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
+    - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`
+    - Test search/geodata, DSA edge cases, recommendations, routes, navigation transitions, and admin CRUD; exercise and fix the complete search-to-arrival journey.
+14. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
+    - Depends on: `integration-testing`
+    - Update setup, architecture, database, algorithms, attribution, environment-variable, and limitation documentation. Deploy the frontend/backend/database and verify the public demo without exposing API keys.
