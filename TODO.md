@@ -44,9 +44,10 @@ checked.
 10. [ ] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
-11. [ ] **Integrating driving and walking routes** (`routing-integration`)
+11. [x] **Integrating driving and walking routes** (`routing-integration`)
     - Depends on: `backend-database-foundation`
     - Integrate OpenRouteService on the backend; return normalized route GeoJSON, distance, and duration for driving and walking. Handle credentials/provider errors and document bike-profile limitations.
+    - Added `POST /api/routes/{mode}` with server-only OpenRouteService credentials, normalized GeoJSON, distance/duration, and explicit missing-key, provider, and rate-limit errors. Car and bike use `driving-car`; walking uses `foot-walking`. Bike-profile limitations are documented. All backend tests pass.
 12. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
     - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
     - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.

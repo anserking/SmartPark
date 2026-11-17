@@ -59,6 +59,27 @@ Use `GET /api/destinations/{id}` to retrieve a stored destination. Provider
 rate limits return `429` and may include `Retry-After`; other provider failures
 return `502`.
 
+## Driving and walking routes
+
+Set `OPENROUTESERVICE_API_KEY` in the backend `.env` file. The key is sent only
+from the backend and is never returned to the frontend.
+
+`POST /api/routes/{mode}` accepts `car`, `bike`, or `walk`:
+
+```json
+{
+  "origin": { "latitude": 24.86, "longitude": 67.01 },
+  "destination": { "latitude": 24.87, "longitude": 67.02 }
+}
+```
+
+The response contains a GeoJSON `LineString`, `distanceMeters`, and
+`durationSeconds`. Car and motorcycle (`bike`) routes use OpenRouteService's
+`driving-car` profile; walking routes use `foot-walking`. OpenRouteService has
+no motorcycle-specific profile, so bike routes do not model motorcycle-only
+restrictions or guarantees. Missing credentials return `503`, provider rate
+limits return `429`, and other provider failures return `502`.
+
 ## Geographic providers
 
 The backend uses Photon for destination geocoding and Overpass for OpenStreetMap
