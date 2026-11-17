@@ -52,9 +52,12 @@ checked.
 13. [ ] **Building parking administration tools** (`parking-administration`)
     - Depends on: `backend-database-foundation`, `geographic-data-services`
     - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.
-14. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
-    - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`
+14. [ ] **Revamping the SmartPark PWA experience** (`pwa-ux-revamp`)
+    - Depends on: `navigation-workflow`, `parking-administration`
+    - Audit and remove redundant or unused interface logic, then redesign the complete PWA with familiar map-first interactions inspired by Google Maps. Keep SmartPark focused on connecting the searched destination with nearby parking and a continuous driving-to-walking navigation journey.
+15. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
+    - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`, `pwa-ux-revamp`
     - Test search/geodata, DSA edge cases, recommendations, routes, navigation transitions, and admin CRUD; exercise and fix the complete search-to-arrival journey.
-15. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
+16. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
     - Depends on: `integration-testing`
     - Update setup, architecture, database, algorithms, attribution, environment-variable, and limitation documentation. Deploy the frontend/backend/database and verify the public demo without exposing API keys.
