@@ -13,24 +13,6 @@ import RewardsPage from './pages/RewardsPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SettingsPage from './pages/SettingsPage';
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isLoading, isAuthenticated } = useAuth();
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return <>{children}</>;
-}
-
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isLoading, isAuthenticated } = useAuth();
 
@@ -65,9 +47,7 @@ function App() {
             </PublicRoute>
           } />
           <Route path="/" element={
-            <ProtectedRoute>
-              <Layout />
-            </ProtectedRoute>
+            <Layout />
           }>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<DashboardPage />} />

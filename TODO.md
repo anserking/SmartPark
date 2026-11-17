@@ -24,6 +24,7 @@ checked.
 4. [x] **Establishing the frontend foundation** (`frontend-foundation`)
     - Depends on: `architecture-decisions`
     - Added a Fetch API client with Zod response validation, shared SmartPark types, and the Zustand navigation state machine with guarded driving/parking/walking transitions. Added two state tests; `npm test` and the production build pass. The original lockfile was out of sync, so `npm install` repaired it; npm reported 29 dependency advisories, not auto-fixed.
+    - Main parking routes are publicly accessible and no longer require Firebase sign-in; optional login and registration pages remain available.
 5. [x] **Implementing geographic data services** (`geographic-data-services`)
    - Depends on: `backend-database-foundation`
    - Added Photon geocoding and Overpass clients for node/way/relation parking queries, with process-local TTL caching, provider timeout/rate-limit errors, OSM-ID deduplication, and geometry normalization that preserves closed areas and relation holes instead of reducing every result to a point. Added offline tests for geocoding, queries, deduplication, area geometry, and rate-limit metadata; all 8 backend tests pass.
