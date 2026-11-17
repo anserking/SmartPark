@@ -59,6 +59,16 @@ Use `GET /api/destinations/{id}` to retrieve a stored destination. Provider
 rate limits return `429` and may include `Retry-After`; other provider failures
 return `502`.
 
+## Map parking search
+
+`GET /api/parking/search` fetches mapped OSM parking facilities from Overpass
+near the requested coordinates. It accepts `latitude`, `longitude`,
+`radius_meters` (100–50000, default 1500), and `limit` (1–50, default 10).
+Results include OSM tags when available and a clearly labeled straight-line
+distance; this is not a road-route ranking and does not imply live availability.
+Parking features are shown with OpenStreetMap attribution. Provider rate limits
+return `429`; other provider failures return `502`.
+
 ## Driving and walking routes
 
 Set `OPENROUTESERVICE_API_KEY` in the backend `.env` file. The key is sent only

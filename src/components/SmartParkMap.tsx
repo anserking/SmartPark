@@ -12,9 +12,11 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
 import { useNavigationStore } from '@/stores/navigationStore';
-import type { Coordinate } from '@/types/smartpark';
-import type { ParkingSpot } from '@/types';
-import type { RouteResult } from '@/types/smartpark';
+import type {
+  Coordinate,
+  MapParkingFacility,
+  RouteResult,
+} from '@/types/smartpark';
 
 const karachiCenter: Coordinate = {
   latitude: 24.8546842,
@@ -48,9 +50,9 @@ const userIcon = L.divIcon({
 
 type SmartParkMapProps = {
   userLocation: Coordinate | null;
-  parkingSpots: ParkingSpot[];
+  parkingFacilities: MapParkingFacility[];
   selectedSpotId: string | null;
-  onSelectSpot: (spot: ParkingSpot) => void;
+  onSelectSpot: (spot: MapParkingFacility) => void;
 };
 
 function MapCenter({ center }: { center: Coordinate }) {
@@ -82,7 +84,7 @@ function FitRoute({ route }: { route: RouteResult | null }) {
 
 export default function SmartParkMap({
   userLocation,
-  parkingSpots,
+  parkingFacilities,
   selectedSpotId,
   onSelectSpot,
 }: SmartParkMapProps) {
@@ -159,22 +161,29 @@ export default function SmartParkMap({
             <Popup>{selectedParking.name || 'Selected parking'}</Popup>
           </Marker>
         )}
-        {parkingSpots
+        {parkingFacilities
           .filter((spot) => spot.id !== selectedParking?.id)
           .map((spot) => (
-          <Marker
-            key={spot.id}
-            position={[spot.location.latitude, spot.location.longitude]}
-            icon={spot.id === selectedSpotId ? selectedParkingIcon : parkingIcon}
-            eventHandlers={{ click: () => onSelectSpot(spot) }}
-          >
-            <Popup>
-              <div className="text-sm">
-                <p className="font-semibold">{spot.type} parking</p>
-                {spot.cost !== null && <p>${spot.cost}/hr</p>}
-              </div>
-            </Popup>
-          </Marker>
+            <Marker
+              key={spot.id}
+              position={[spot.location.latitude, spot.location.longitude]}
+              icon={spot.id === selectedSpotId ? selectedParkingIcon : parkingIcon}
+              eventHandlers={{ click: () => onSelectSpot(spot) }}
+            >
+              <Popup>
+                <div className="text-sm">
+                  <p className="font-semibold">
+                    {spot.parkingType.replace(/_/g, ' ')} parking
+                  </p>
+                  {spot.name && <p>{spot.name}</p>}
+                  {spot.fee && <p>Fee: {spot.fee}</p>}
+                  <p>
+                    {(spot.straightLineDistanceMeters / 1000).toFixed(1)} km
+                    straight-line
+                  </p>
+                </div>
+              </Popup>
+            </Marker>
           ))}
         {routeFeature && route && (
           <GeoJSON

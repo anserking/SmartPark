@@ -106,7 +106,7 @@ class OverpassClient:
             f'{element_type}[{tags}](around:{radius_meters},{latitude:.6f},{longitude:.6f});'
             for element_type in ("node", "way", "relation")
         )
-        return f"[out:json][timeout:25];\n(\n{selectors}\n);\nout center geom;"
+        return f"[out:json][timeout:25];\n(\n{selectors}\n);\nout center;"
 
     @staticmethod
     def _road_query(latitude: float, longitude: float, radius_meters: int) -> str:

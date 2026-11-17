@@ -20,7 +20,7 @@ checked.
    - Decision: keep React/TypeScript/Vite/Tailwind and retain Leaflet, since its existing map works and can display route GeoJSON without a costly migration. Add FastAPI and PostgreSQL/PostGIS; replace Firebase-backed parking data with backend APIs, use Zustand for navigation state, and keep routing credentials server-side. Remove unused Firebase-dependent user features from the core journey; implement only simple environment-configured protection for the minimal admin rather than adding complex authentication.
 3. [x] **Establishing backend and database foundations** (`backend-database-foundation`)
    - Depends on: `architecture-decisions`
-   - Added the FastAPI service, environment-based settings, database-aware health endpoint, SQLAlchemy 2 models, PostGIS/Alembic initial schema, local setup instructions, and Python ignores. Verified with 2 passing tests, Python compilation, and offline SQL migration generation. Applying the migration against a live PostGIS database remains unverified because none is configured here.
+   - Added the FastAPI service, environment-based settings, database-aware health endpoint, SQLAlchemy 2 models, PostGIS/Alembic initial schema, local setup instructions, and Python ignores. Verified with 2 passing tests, Python compilation, and migrations `0001`–`0002` applied to the provided Neon database with PostGIS 3.6.4.
 4. [x] **Establishing the frontend foundation** (`frontend-foundation`)
     - Depends on: `architecture-decisions`
     - Added a Fetch API client with Zod response validation, shared SmartPark types, and the Zustand navigation state machine with guarded driving/parking/walking transitions. Added two state tests; `npm test` and the production build pass. The original lockfile was out of sync, so `npm install` repaired it; npm reported 29 dependency advisories, not auto-fixed.
@@ -34,15 +34,16 @@ checked.
 7. [ ] **Ingesting a real Karachi road network** (`road-network-ingestion`)
     - Depends on: `geographic-data-services`, `dsa-engine`
     - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
-    - Progress: added a bounded Overpass query with caching, OSM node/way normalization, per-mode access and direction handling, an atomic repeatable import script, and a migration for mode-specific road access. Tests and offline migration generation pass. Live retrieval could not be verified because the configured Overpass endpoint timed out/returned 502 and no PostGIS connection is configured.
-    - Blocked: cannot verify or persist the real graph until Overpass is reachable and a PostGIS `DATABASE_URL` is provided.
+    - Progress: added a bounded Overpass query with caching, OSM node/way normalization, per-mode access and direction handling, an atomic repeatable import script, and a migration for mode-specific road access. Neon connectivity was verified, PostGIS 3.6.4 confirmed, and migrations `0001`–`0002` applied.
+    - Blocked: the configured Overpass endpoint returned 504/502 and alternate mirrors timed out, so no road graph could be imported.
 8. [x] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
    - Added search/detail API endpoints with persistence, provider failure handling, Photon geocoding and caching, and Trie-backed suggestions. Added a debounced accessible frontend autocomplete with destination selection and details, optional location bias, and stale-request cancellation. Search is backed by geocoding, not a static list.
 9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
     - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
-   - Blocked: road-distance ranking requires the real imported road graph and a live PostGIS database; straight-line distances will not be presented as road distances.
+   - Progress: added an OSM parking-search API and switched dashboard parking markers/listing to fetched map facilities only. Distances are explicitly labeled straight-line.
+   - Blocked: road-distance ranking requires the real imported road graph; current Overpass endpoints also return 502/time out.
 10. [x] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
@@ -54,7 +55,7 @@ checked.
 12. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
     - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
     - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.
-    - In progress: added a validated frontend route client and dashboard controls for vehicle choice, driving, parking confirmation, walking, arrival, cancellation, and reset. Nearby reported spots are searched around the selected destination; road-ranked recommendations remain blocked on real road data and PostGIS.
+    - In progress: added a validated frontend route client and dashboard controls for vehicle choice, driving, parking confirmation, walking, arrival, cancellation, and reset. The dashboard now requests OSM parking around the selected destination; full testing awaits working parking-data and road-network providers.
 13. [ ] **Building parking administration tools** (`parking-administration`)
     - Depends on: `backend-database-foundation`, `geographic-data-services`
     - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.

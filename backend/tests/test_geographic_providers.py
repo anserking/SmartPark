@@ -76,7 +76,7 @@ def test_overpass_queries_nodes_ways_relations_and_deduplicates() -> None:
     assert len(results) == 1
     assert results[0].osm_id == "node/101"
     assert all(f"{element_type}[" in query for element_type in ("node", "way", "relation"))
-    assert "out center geom;" in query
+    assert "out center;" in query
 
 
 def test_overpass_rate_limit_is_exposed_to_the_caller() -> None:

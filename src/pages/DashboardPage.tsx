@@ -3,20 +3,20 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { useAuth } from '@/hooks/useAuth';
-import { getNearbyParkingSpots } from '@/services/parkingSpots';
 import { getActiveSessionForUser } from '@/services/parkingSessions';
 import { useNavigationStore } from '@/stores/navigationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Clock, DollarSign, Car, AlertCircle, Loader2 } from 'lucide-react';
+import { MapPin, Car, AlertCircle, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import type { ParkingSpot } from '@/types';
 import DestinationSearch from '@/components/DestinationSearch';
 import SmartParkMap from '@/components/SmartParkMap';
+import { searchParkingFacilities } from '@/services/parking';
 import { getRoute } from '@/services/routes';
 import type {
+  MapParkingFacility,
   ParkingFacility,
   VehicleType,
 } from '@/types/smartpark';
@@ -24,7 +24,7 @@ import type {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { position, isLoading: locationLoading, error: locationError } = useGeolocation();
-  const [selectedSpot, setSelectedSpot] = useState<ParkingSpot | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<MapParkingFacility | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [isRouting, setIsRouting] = useState(false);
   const routeRequest = useRef<AbortController | null>(null);
@@ -97,12 +97,7 @@ export default function DashboardPage() {
     ],
     queryFn: () => {
       if (!nearbyCenter) return [];
-      return getNearbyParkingSpots(
-        nearbyCenter.latitude,
-        nearbyCenter.longitude,
-        2,
-        10,
-      );
+      return searchParkingFacilities(nearbyCenter, 2000, 10);
     },
     enabled: !!nearbyCenter,
   });
@@ -117,7 +112,7 @@ export default function DashboardPage() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  const handleSelectSpot = (spot: ParkingSpot) => {
+  const handleSelectSpot = (spot: MapParkingFacility) => {
     if (navigationStatus !== 'idle' && navigationStatus !== 'destination_selected') {
       return;
     }
@@ -129,18 +124,18 @@ export default function DashboardPage() {
 
     const facility: ParkingFacility = {
       id: spot.id,
-      name: spot.location.address || `${spot.type} parking`,
-      address: spot.location.address || null,
+      name: spot.name || `${spot.parkingType.replaceAll('_', ' ')} parking`,
+      address: spot.address,
       location: {
         latitude: spot.location.latitude,
         longitude: spot.location.longitude,
       },
-      parkingType: spot.type,
-      hourlyFee: spot.cost,
-      supportsCar: null,
-      supportsBike: null,
-      availabilityStatus: 'unknown',
-      verificationStatus: spot.verified ? 'verified' : 'unverified',
+      parkingType: spot.parkingType,
+      hourlyFee: null,
+      supportsCar: spot.supportsCar,
+      supportsBike: spot.supportsBike,
+      availabilityStatus: spot.availabilityStatus,
+      verificationStatus: spot.verificationStatus,
     };
     selectParking(facility);
   };
@@ -299,13 +294,13 @@ export default function DashboardPage() {
               <CardDescription>
                 {spotsLoading
                   ? 'Loading spots...'
-                  : `${spots?.length || 0} reported spots ${selectedDestination ? 'near the destination' : 'near you'}`}
+                  : `${spots?.length || 0} mapped facilities ${selectedDestination ? 'near the destination' : 'near you'}`}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <SmartParkMap
                 userLocation={position ?? null}
-                parkingSpots={spots ?? []}
+                parkingFacilities={spots ?? []}
                 selectedSpotId={selectedSpot?.id ?? null}
                 onSelectSpot={handleSelectSpot}
               />
@@ -450,12 +445,12 @@ export default function DashboardPage() {
           <Card>
             <CardHeader>
               <CardTitle>
-                {selectedDestination ? 'Parking near destination' : 'Nearby Spots'}
+                {selectedDestination ? 'Mapped parking near destination' : 'Nearby mapped parking'}
               </CardTitle>
               <CardDescription>
                 {spotsLoading
                   ? 'Loading...'
-                  : `${spots?.length || 0} reported spots`}
+                  : `${spots?.length || 0} OpenStreetMap facilities`}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -465,13 +460,13 @@ export default function DashboardPage() {
                 </div>
               ) : spotsErrorOccurred ? (
                 <p role="alert" className="text-sm text-destructive">
-                  Could not load parking reports
+                  Could not load mapped parking
                   {spotsError instanceof Error ? `: ${spotsError.message}` : '.'}
                 </p>
               ) : !nearbyCenter ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Enable location to find nearby parking spots.</p>
+                  <p>Choose a destination or allow location access to find mapped parking.</p>
                 </div>
               ) : spots && spots.length > 0 ? (
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">
@@ -485,28 +480,28 @@ export default function DashboardPage() {
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between mb-2">
                           <Badge variant="outline" className="capitalize">
-                            {spot.type}
+                            {spot.parkingType.replaceAll('_', ' ')}
                           </Badge>
-                          {spot.verified && (
-                            <Badge variant="default" className="text-xs">
-                              Verified
-                            </Badge>
-                          )}
+                          <Badge variant="secondary" className="text-xs">
+                            OpenStreetMap
+                          </Badge>
                         </div>
                         <p className="text-sm font-medium mb-1">
-                          {spot.location.address || 'Parking Spot'}
+                          {spot.name || 'Mapped parking'}
                         </p>
+                        {spot.address && (
+                          <p className="mb-2 text-xs text-muted-foreground">
+                            {spot.address}
+                          </p>
+                        )}
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          {spot.cost !== null && (
-                            <span className="flex items-center gap-1">
-                              <DollarSign className="h-3 w-3" />
-                              ${spot.cost}/hr
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(spot.timestamp, { addSuffix: true })}
+                          <span>
+                            {spot.straightLineDistanceMeters >= 1000
+                              ? `${(spot.straightLineDistanceMeters / 1000).toFixed(1)} km`
+                              : `${Math.round(spot.straightLineDistanceMeters)} m`}{' '}
+                            straight-line
                           </span>
+                          {spot.fee && <span>Fee: {spot.fee}</span>}
                         </div>
                       </CardContent>
                     </Card>
@@ -515,12 +510,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
                   <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No parking spots found nearby</p>
-                  <Link to="/parking-spots">
-                    <Button variant="outline" className="mt-4">
-                      Report a Spot
-                    </Button>
-                  </Link>
+                  <p>No mapped parking facilities found nearby.</p>
                 </div>
               )}
             </CardContent>
@@ -537,46 +527,40 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium mb-1">Type</p>
-                <Badge className="capitalize">{selectedSpot.type}</Badge>
+                <Badge className="capitalize">
+                  {selectedSpot.parkingType.replaceAll('_', ' ')}
+                </Badge>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Cost</p>
-                <p>{selectedSpot.cost !== null ? `$${selectedSpot.cost}/hr` : 'Free'}</p>
+                <p className="text-sm font-medium mb-1">Fee</p>
+                <p>{selectedSpot.fee || 'Not specified'}</p>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Time Limit</p>
+                <p className="text-sm font-medium mb-1">Capacity</p>
+                <p>{selectedSpot.capacity ?? 'Not specified'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-medium mb-1">Car access</p>
                 <p>
-                  {selectedSpot.timeLimit !== null
-                    ? `${selectedSpot.timeLimit} minutes`
-                    : 'No limit'}
+                  {selectedSpot.supportsCar === null
+                    ? 'Not specified'
+                    : selectedSpot.supportsCar ? 'Yes' : 'No'}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Features</p>
-                <div className="flex gap-2">
-                  {selectedSpot.isHandicapAccessible && (
-                    <Badge variant="secondary">Handicap</Badge>
-                  )}
-                  {selectedSpot.isEVCharging && (
-                    <Badge variant="secondary">EV Charging</Badge>
-                  )}
-                </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Reported</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatDistanceToNow(selectedSpot.timestamp, { addSuffix: true })}
+                <p className="text-sm font-medium mb-1">Bike access</p>
+                <p>
+                  {selectedSpot.supportsBike === null
+                    ? 'Not specified'
+                    : selectedSpot.supportsBike ? 'Yes' : 'No'}
                 </p>
               </div>
               <div>
-                <p className="text-sm font-medium mb-1">Rating</p>
-                <p>{selectedSpot.rating > 0 ? `${selectedSpot.rating.toFixed(1)}/5` : 'No ratings yet'}</p>
+                <p className="text-sm font-medium mb-1">Distance</p>
+                <p>
+                  {(selectedSpot.straightLineDistanceMeters / 1000).toFixed(1)} km straight-line
+                </p>
               </div>
-            </div>
-            <div className="mt-4 flex gap-2">
-              <Link to="/parking-spots" className="flex-1">
-                <Button className="w-full">View All Spots</Button>
-              </Link>
             </div>
           </CardContent>
         </Card>
