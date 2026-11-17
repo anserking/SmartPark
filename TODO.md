@@ -21,35 +21,38 @@ checked.
    - Depends on: `architecture-decisions`
    - Added the FastAPI service, environment-based settings, database-aware health endpoint, SQLAlchemy 2 models, PostGIS/Alembic initial schema, local setup instructions, and Python ignores. Verified with 2 passing tests, Python compilation, and offline SQL migration generation. Applying the migration against a live PostGIS database remains unverified because none is configured here.
 4. [ ] **Establishing the frontend foundation** (`frontend-foundation`)
-   - Depends on: `architecture-decisions`
-   - Adapt the app structure, API client, shared types, and Zustand navigation state while preserving useful components and keeping the app buildable.
+    - Depends on: `architecture-decisions`
+    - Adapt the app structure, API client, shared types, and Zustand navigation state while preserving useful components and keeping the app buildable.
 5. [x] **Implementing geographic data services** (`geographic-data-services`)
    - Depends on: `backend-database-foundation`
    - Added Photon geocoding and Overpass clients for node/way/relation parking queries, with process-local TTL caching, provider timeout/rate-limit errors, OSM-ID deduplication, and geometry normalization that preserves closed areas and relation holes instead of reducing every result to a point. Added offline tests for geocoding, queries, deduplication, area geometry, and rate-limit metadata; all 8 backend tests pass.
-6. [ ] **Implementing required DSA algorithms** (`dsa-engine`)
+6. [x] **Implementing required DSA algorithms** (`dsa-engine`)
    - Depends on: `backend-database-foundation`
-   - Implement and test a normalized Trie, adjacency-list graph, binary-heap Dijkstra with path reconstruction and unreachable handling, hash-based lookups, heap ranking, and merge sort where practical. Document complexity and use real road data where available.
-7. [ ] **Building destination search and autocomplete** (`destination-search`)
+    - Added and tested the normalized Trie, adjacency-list graph builder with access/one-way handling, binary-heap Dijkstra with distances/predecessors/path reconstruction, heap-based vehicle-aware parking ranking, and stable merge sort for fee sorting. Added algorithm complexity documentation. Real road-network ingestion is tracked separately below.
+7. [ ] **Ingesting a real Karachi road network** (`road-network-ingestion`)
+    - Depends on: `geographic-data-services`, `dsa-engine`
+    - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
+8. [ ] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
    - Build the search API and debounced frontend autocomplete, result selection, destination details, geocoding/cache, and Trie-backed suggestions. Search must not rely only on a static list.
-8. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
-   - Depends on: `geographic-data-services`, `dsa-engine`
+9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
+    - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
-9. [ ] **Building the interactive map experience** (`interactive-map`)
+10. [ ] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
-10. [ ] **Integrating driving and walking routes** (`routing-integration`)
+11. [ ] **Integrating driving and walking routes** (`routing-integration`)
     - Depends on: `backend-database-foundation`
     - Integrate OpenRouteService on the backend; return normalized route GeoJSON, distance, and duration for driving and walking. Handle credentials/provider errors and document bike-profile limitations.
-11. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
+12. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
     - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
     - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.
-12. [ ] **Building parking administration tools** (`parking-administration`)
+13. [ ] **Building parking administration tools** (`parking-administration`)
     - Depends on: `backend-database-foundation`, `geographic-data-services`
     - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.
-13. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
+14. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
     - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`
     - Test search/geodata, DSA edge cases, recommendations, routes, navigation transitions, and admin CRUD; exercise and fix the complete search-to-arrival journey.
-14. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
+15. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
     - Depends on: `integration-testing`
     - Update setup, architecture, database, algorithms, attribution, environment-variable, and limitation documentation. Deploy the frontend/backend/database and verify the public demo without exposing API keys.
