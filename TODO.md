@@ -35,12 +35,14 @@ checked.
     - Depends on: `geographic-data-services`, `dsa-engine`
     - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
     - Progress: added a bounded Overpass query with caching, OSM node/way normalization, per-mode access and direction handling, an atomic repeatable import script, and a migration for mode-specific road access. Tests and offline migration generation pass. Live retrieval could not be verified because the configured Overpass endpoint timed out/returned 502 and no PostGIS connection is configured.
+    - Blocked: cannot verify or persist the real graph until Overpass is reachable and a PostGIS `DATABASE_URL` is provided.
 8. [x] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
    - Added search/detail API endpoints with persistence, provider failure handling, Photon geocoding and caching, and Trie-backed suggestions. Added a debounced accessible frontend autocomplete with destination selection and details, optional location bias, and stale-request cancellation. Search is backed by geocoding, not a static list.
 9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
     - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
+   - Blocked: road-distance ranking requires the real imported road graph and a live PostGIS database; straight-line distances will not be presented as road distances.
 10. [x] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
@@ -52,6 +54,7 @@ checked.
 12. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
     - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
     - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.
+    - In progress: added a validated frontend route client and dashboard controls for vehicle choice, driving, parking confirmation, walking, arrival, cancellation, and reset. Nearby reported spots are searched around the selected destination; road-ranked recommendations remain blocked on real road data and PostGIS.
 13. [ ] **Building parking administration tools** (`parking-administration`)
     - Depends on: `backend-database-foundation`, `geographic-data-services`
     - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.
