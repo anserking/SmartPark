@@ -12,19 +12,9 @@ import { Badge } from '@/components/ui/badge';
 import { MapPin, Clock, DollarSign, Car, AlertCircle, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import type { ParkingSpot, ParkingSession } from '@/types';
+import type { ParkingSpot } from '@/types';
 import DestinationSearch from '@/components/DestinationSearch';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-// Fix for default marker icon
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+import SmartParkMap from '@/components/SmartParkMap';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -71,59 +61,6 @@ export default function DashboardPage() {
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 
-  if (locationLoading) {
-    return (
-      <div className="space-y-6">
-        {destinationSearch}
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-            <p className="text-muted-foreground">Getting your location...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (locationError) {
-    return (
-      <div className="space-y-6">
-        {destinationSearch}
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Location Access Required
-              </CardTitle>
-              <CardDescription>
-                Please enable location access to find nearby parking spots.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  if (!position) {
-    return (
-      <div className="space-y-6">
-        {destinationSearch}
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <Card className="max-w-md">
-            <CardHeader>
-              <CardTitle>Location Not Available</CardTitle>
-              <CardDescription>
-                Unable to get your location. Please check your browser settings.
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {destinationSearch}
@@ -133,6 +70,19 @@ export default function DashboardPage() {
           Find parking spots near you
         </p>
       </div>
+
+      {locationLoading && (
+        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Getting your location. You can still search for a destination.
+        </p>
+      )}
+      {locationError && (
+        <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
+          <AlertCircle className="h-4 w-4" />
+          Location is unavailable. Search remains available without location bias.
+        </p>
+      )}
 
       {activeSession && (
         <Card className="border-primary/50 bg-primary/5">
@@ -170,41 +120,12 @@ export default function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-[500px] rounded-lg overflow-hidden">
-                <MapContainer
-                  center={[position.latitude, position.longitude]}
-                  zoom={15}
-                  style={{ height: '100%', width: '100%' }}
-                >
-                  <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  />
-                  <Marker
-                    position={[position.latitude, position.longitude]}
-                  >
-                    <Popup>Your Location</Popup>
-                  </Marker>
-                  {spots?.map((spot) => (
-                    <Marker
-                      key={spot.id}
-                      position={[spot.location.latitude, spot.location.longitude]}
-                      eventHandlers={{
-                        click: () => setSelectedSpot(spot),
-                      }}
-                    >
-                      <Popup>
-                        <div className="text-sm">
-                          <p className="font-semibold">{spot.type} Parking</p>
-                          {spot.cost !== null && (
-                            <p>${spot.cost}/hr</p>
-                          )}
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-                </MapContainer>
-              </div>
+              <SmartParkMap
+                userLocation={position ?? null}
+                parkingSpots={spots ?? []}
+                selectedSpotId={selectedSpot?.id ?? null}
+                onSelectSpot={setSelectedSpot}
+              />
             </CardContent>
           </Card>
         </div>
@@ -221,6 +142,11 @@ export default function DashboardPage() {
               {spotsLoading ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin" />
+                </div>
+              ) : !position ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>Enable location to find nearby parking spots.</p>
                 </div>
               ) : spots && spots.length > 0 ? (
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">

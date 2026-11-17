@@ -41,9 +41,10 @@ checked.
 9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
     - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
-10. [ ] **Building the interactive map experience** (`interactive-map`)
+10. [x] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
+   - Implemented on the existing Leaflet map: geolocation and Karachi fallback center, destination and parking markers, driving/walking route layers, route framing, muted destination during driving, and hiding only the selected parking marker after parking is confirmed.
 11. [x] **Integrating driving and walking routes** (`routing-integration`)
     - Depends on: `backend-database-foundation`
     - Integrate OpenRouteService on the backend; return normalized route GeoJSON, distance, and duration for driving and walking. Handle credentials/provider errors and document bike-profile limitations.

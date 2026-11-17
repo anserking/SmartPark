@@ -6,6 +6,40 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+.smartpark-marker-container {
+  background: transparent;
+  border: 0;
+}
+
+.smartpark-marker {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 2px solid white;
+  border-radius: 50%;
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.smartpark-marker--destination {
+  background: #b42318;
+}
+
+.smartpark-marker--parking {
+  background: #146b45;
+}
+
+.smartpark-marker--selected-parking {
+  background: #a64b00;
+}
+
+.smartpark-marker--user {
+  background: #2463eb;
+}
+
 :root {
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
