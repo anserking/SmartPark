@@ -8,10 +8,8 @@ from geoalchemy2.shape import to_shape
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.algorithms.graph import RoadEdgeRecord
 from app.db.session import get_db
 from app.models.parking_spot import ParkingSpot
-from app.models.road_network import RoadEdge, RoadNode
 from app.schemas.destination import CoordinateResponse
 from app.schemas.parking import (
     ParkingFacilityResponse,
@@ -237,6 +235,8 @@ async def recommend_parking(
         )
 
     for spot in db.scalars(select(ParkingSpot)).all():
+        if spot.source != "admin":
+            continue
         point = to_shape(spot.location)
         if point.geom_type != "Point":
             point = point.representative_point()
@@ -281,27 +281,6 @@ async def recommend_parking(
             source=spot.source,
         )
 
-    node_locations: dict[int, tuple[float, float]] = {}
-    for node in db.scalars(select(RoadNode)).all():
-        point = to_shape(node.location)
-        node_locations[node.id] = (point.y, point.x)
-
-    edges = [
-        RoadEdgeRecord(
-            source=edge.source_node,
-            target=edge.target_node,
-            distance_meters=edge.distance_meters,
-            road_type=edge.road_type,
-            access_type=edge.access_type,
-            one_way=edge.one_way,
-            car_access=edge.car_access,
-            bike_access=edge.bike_access,
-            foot_access=edge.foot_access,
-            bike_one_way=edge.bike_one_way,
-        )
-        for edge in db.scalars(select(RoadEdge)).all()
-    ]
-
     ranked = rank_parking_recommendations(
         destination_latitude=latitude,
         destination_longitude=longitude,
@@ -309,8 +288,8 @@ async def recommend_parking(
             details.candidate for details in details_by_id.values()
         ],
         vehicle_type=vehicle_type,
-        node_locations=node_locations,
-        edges=edges,
+        node_locations={},
+        edges=[],
         max_results=limit,
     )
     distance_method = ranked[0].distance_method if ranked else "straight_line"

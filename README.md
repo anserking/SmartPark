@@ -7,11 +7,9 @@ vehicle-compatible facility, drive to it, confirm parking, and continue on foot.
 
 - Destination search and autocomplete powered by Google Places (New).
 - Nearby Google parking discovery with car/bike compatibility filtering.
-- Top-five recommendations ranked by imported road distance when the Karachi
-  road graph covers the area; otherwise, results are clearly labeled as
-  straight-line estimates.
+- Top-five recommendations ranked by straight-line distance to the destination.
 - A Google map with destination, user, parking, driving, and walking layers.
-- A guarded drive → park → walk → arrive navigation flow using OpenRouteService.
+- A guarded drive → park → walk → arrive navigation flow using Google Routes.
 - Admin-key-protected parking record management for create, edit, verify,
   unavailable, and delete actions.
 - Installable PWA shell. Network-backed API results and map tiles still require
@@ -24,11 +22,12 @@ vehicle-compatible facility, drive to it, confirm parking, and continue on foot.
 - **API:** FastAPI, Pydantic, SQLAlchemy 2, and Alembic.
 - **Database:** PostgreSQL with PostGIS. Use a hosted PostGIS-compatible
   database such as Neon.
-- **External data:** Google Places for destination and parking search, Overpass
-  for imported OSM roads, and OpenRouteService for driving/walking directions.
+- **External data:** Google Places for destination and parking search and
+  Google Routes for driving/walking directions. Legacy OSM import code is not
+  used by the current journey.
 
-The browser receives the public Maps JavaScript demo key. Keep database,
-admin, and OpenRouteService secrets in the backend environment.
+The browser receives the public Maps JavaScript demo key. Keep database and
+admin secrets in the backend environment.
 
 ## Run locally
 
@@ -58,8 +57,8 @@ PostGIS enabled.
 
    Set `DATABASE_URL` to the hosted PostGIS connection string. Before exposing
    admin tools, set a long random `ADMIN_API_KEY`. For directions, set
-   `OPENROUTESERVICE_API_KEY` and `GOOGLE_MAPS_API_KEY` for Places searches.
-   Enable Maps JavaScript API and Places API (New), with billing and quotas.
+   `GOOGLE_MAPS_API_KEY` for Places and Routes searches. Enable Maps JavaScript
+   API, Places API (New), and Routes API, with billing and quotas.
    Set `CORS_ORIGINS` for any direct cross-origin
    production calls.
 
@@ -106,14 +105,10 @@ build time. Do not commit `.env` files or provider credentials.
 - The dashboard uses a Google map and displays Google Places parking. Nearby
   facilities are not live occupancy data and show unknown availability until
   maintained through SmartPark administration.
-- Straight-line recommendations are explicitly labeled whenever the imported
-  road graph is missing or does not cover the searched facilities.
-- Road import fetches bounded areas around Bahria University Karachi, Saddar,
-  and Clifton. Provider outages can prevent refreshing the graph; see
-  [backend/README.md](./backend/README.md).
-- OpenRouteService has no motorcycle-specific profile. SmartPark uses its
-  `driving-car` profile for cars and bikes and does not guarantee motorcycle
-  restrictions.
+- Recommendation distance is explicitly labeled as straight-line. The actual
+  drive and walk routes come from Google Routes.
+- Bike journeys currently use Google's drive mode; motorcycle-specific
+  restrictions are not guaranteed.
 - Offline mode caches only the application shell. Search, recommendations,
   directions, and map tiles require a network connection.
 

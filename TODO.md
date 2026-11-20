@@ -68,16 +68,15 @@ checked.
     - Depends on: `interactive-map`, `destination-search`, `parking-recommendations`, `routing-integration`
     - Replace Leaflet/OpenStreetMap in views that show Google Places or Geocoding content; review route and road-distance layers for the same compatibility requirement.
     - Stop shared persistent storage and indexing of Google place names and addresses; follow Google’s data-retention and attribution rules.
-    - Switched destination and nearby parking searches to Google Places (New), and the dashboard to Google Maps JavaScript API. Google place names and addresses remain transient; the older database detail endpoint serves only preexisting records.
+    - Switched destination and nearby parking searches to Google Places (New), both visible maps to Google Maps JavaScript API, and route navigation to Google Routes. Removed the Leaflet dependency. Parking recommendations no longer query the OSM road graph; distance estimates are clearly labeled straight-line. Google place names and addresses remain transient; the older database detail endpoint serves only preexisting records.
     - The same user-provided demo key is configured locally for server and browser use. The browser key is public by design; configure website restrictions, billing, and quotas in Google Cloud before production.
     - Live Bahria University text search returned one result and nearby parking returned five results on 2026-11-20.
 
-17. [ ] **Re-verify the journey after the provider migration** (`post-provider-integration-testing`)
+17. [x] **Re-verify the journey after the provider migration** (`post-provider-integration-testing`)
     - Depends on: `google-maps-platform`
     - Re-run destination search, nearby parking, recommendations, driving/walking routes, and the complete search-to-arrival flow against the migrated providers.
     - Update and run focused frontend/backend checks, then confirm local setup and production build.
-    - Passing: 45 backend tests, 9 frontend tests, and production build. The live local API health, Bahria University search, and top-five parking recommendations returned 200.
-    - Remaining: both live driving and walking route requests returned 502 because connection attempts to OpenRouteService failed; the complete search-to-arrival flow cannot be verified until routing is reachable.
+    - Passing: 50 backend tests, 9 frontend tests, and production build. The live local API returned 200 for Bahria University search, top-five Google parking recommendations, and both driving and walking Google routes. The frontend navigation-state tests cover parking confirmation and arrival.
 
 18. [ ] **Deploy the documented MVP** (`documentation-deployment`)
     - Depends on: `post-provider-integration-testing`

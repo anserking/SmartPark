@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigationStore } from '@/stores/navigationStore';
 import type { Coordinate, ParkingRecommendation } from '@/types/smartpark';
 
-type Point = { lat: number; lng: number };
-type Overlay = { setMap(map: null): void };
-type MapView = { setCenter(point: Point): void; fitBounds(bounds: Bounds): void };
-type Marker = Overlay & { addListener(event: string, callback: () => void): void };
-type Bounds = { extend(point: Point): void };
-type MapsApi = {
+export type Point = { lat: number; lng: number };
+export type Overlay = { setMap(map: null): void };
+export type MapView = { setCenter(point: Point): void; fitBounds(bounds: Bounds): void };
+export type Marker = Overlay & { addListener(event: string, callback: () => void): void; getPosition(): { lat(): number; lng(): number } | null };
+export type Bounds = { extend(point: Point): void };
+export type MapsApi = {
   Map: new (element: HTMLElement, options: object) => MapView;
   Marker: new (options: object) => Marker;
   Polyline: new (options: object) => Overlay;
@@ -22,7 +22,7 @@ declare global {
 
 let mapsPromise: Promise<MapsApi> | null = null;
 
-function loadMaps(): Promise<MapsApi> {
+export function loadMaps(): Promise<MapsApi> {
   if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
   const key = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;

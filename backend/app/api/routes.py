@@ -3,25 +3,24 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.schemas.routing import RouteRequest, RouteResponse
+from app.services.google_routes import GoogleRoutesClient, google_routes_client
 from app.services.providers import GeographicProviderError
 from app.services.routing import (
-    OpenRouteServiceClient,
     RoutingConfigurationError,
-    routing_client,
 )
 
 router = APIRouter(prefix="/api/routes", tags=["routes"])
 
 
-def get_routing_client() -> OpenRouteServiceClient:
-    return routing_client
+def get_routing_client() -> GoogleRoutesClient:
+    return google_routes_client
 
 
 @router.post("/{mode}", response_model=RouteResponse)
 async def get_route(
     mode: Literal["car", "bike", "walk"],
     request: RouteRequest,
-    provider: OpenRouteServiceClient = Depends(get_routing_client),
+    provider: GoogleRoutesClient = Depends(get_routing_client),
 ) -> RouteResponse:
     try:
         return await provider.route(request.origin, request.destination, mode)

@@ -75,9 +75,8 @@ distance; it does not imply live availability.
 `limit` (1–5, default 5). Explicitly incompatible parking is excluded. Results
 include destination distance, optional straight-line distance from the user,
 known fee, verification state, availability state, and data source. Distance
-methods are explicit: `road` uses Dijkstra over the imported directed Karachi
-network; `straight_line` is an honest fallback when the graph does not cover
-the search. No straight-line estimate is represented as a road distance.
+methods are explicit: active Google parking recommendations use `straight_line`.
+The driving and walking route endpoints return actual Google road paths.
 
 Google facilities are marked unverified with availability unknown.
 Admin-maintained database records are included in recommendations.
@@ -100,7 +99,7 @@ HTTPS in production and rotate the key if it is exposed.
 
 ## Driving and walking routes
 
-Set `OPENROUTESERVICE_API_KEY` in the backend `.env` file. The key is sent only
+Set `GOOGLE_MAPS_API_KEY` in the backend `.env` file. The key is sent only
 from the backend and is never returned to the frontend.
 
 `POST /api/routes/{mode}` accepts `car`, `bike`, or `walk`:
@@ -113,19 +112,17 @@ from the backend and is never returned to the frontend.
 ```
 
 The response contains a GeoJSON `LineString`, `distanceMeters`, and
-`durationSeconds`. Car and motorcycle (`bike`) routes use OpenRouteService's
-`driving-car` profile; walking routes use `foot-walking`. OpenRouteService has
-no motorcycle-specific profile, so bike routes do not model motorcycle-only
+`durationSeconds`. Car and motorcycle (`bike`) routes use Google Routes
+`DRIVE`; walking routes use `WALK`. Bike routes do not model motorcycle-only
 restrictions or guarantees. Missing credentials return `503`, provider rate
 limits return `429`, and other provider failures return `502`.
 
 ## Geographic providers
 
-The backend uses Photon for destination geocoding and Overpass for OpenStreetMap
-parking discovery. Provider results are normalized and cached in process for
-`GEODATA_CACHE_TTL_SECONDS`; provider failures and rate limits are surfaced to
-API callers. Respect provider usage policies and include OpenStreetMap
-attribution in the app.
+The active journey uses Google Places and Google Routes. Google place content
+is returned transiently and not cached or stored by SmartPark. The older Photon
+and Overpass code remains for legacy data imports and is not called by the
+destination, parking, or route endpoints.
 
 ## Tests
 

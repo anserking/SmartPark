@@ -38,25 +38,7 @@ import {
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 import type { ParkingSpot, Vehicle } from '@/types';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
-
-const carIcon = L.divIcon({
-  html: `<div class="bg-primary text-primary-foreground p-1.5 rounded-full shadow-lg border-2 border-white flex items-center justify-center w-full h-full">
-    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-car"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
-  </div>`,
-  className: '',
-  iconSize: [40, 40],
-  iconAnchor: [20, 20],
-});
+import GoogleParkingMap from '@/components/GoogleParkingMap';
 
 export default function ParkingSpotsPage() {
   const { user } = useAuth();
@@ -172,38 +154,7 @@ export default function ParkingSpotsPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[400px] rounded-lg overflow-hidden">
-              {/* @ts-ignore */}
-              <MapContainer
-                center={[position.latitude, position.longitude] as [number, number]}
-                zoom={13}
-                style={{ height: '100%', width: '100%' }}
-              >
-                {/* @ts-ignore */}
-                <TileLayer
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                />
-                {/* @ts-ignore */}
-                <Marker position={[position.latitude, position.longitude] as [number, number]} icon={carIcon}>
-                  <Popup>Your Location</Popup>
-                </Marker>
-                {spots?.map((spot) => (
-                  <Marker
-                    key={spot.id}
-                    position={[spot.location.latitude, spot.location.longitude] as [number, number]}
-                    eventHandlers={{
-                      click: () => setSelectedSpot(spot),
-                    }}
-                  >
-                    <Popup>
-                      <div className="text-sm">
-                        <p className="font-semibold">{spot.type} Parking</p>
-                        {spot.cost !== null && <p>${spot.cost}/hr</p>}
-                      </div>
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
+              <GoogleParkingMap center={position} spots={spots} onSelectSpot={setSelectedSpot} />
             </div>
           </CardContent>
         </Card>
@@ -450,16 +401,6 @@ function AddSpotForm({
     }
   };
 
-  const [map, setMap] = useState<L.Map | null>(null);
-
-  useEffect(() => {
-    if (map) {
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    }
-  }, [map]);
-
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {position && (
@@ -467,33 +408,11 @@ function AddSpotForm({
           className="w-full rounded-md overflow-hidden border relative z-0 mb-4"
           style={{ height: '300px' }}
         >
-          {/* @ts-ignore */}
-          <MapContainer
-            center={[position.latitude, position.longitude] as [number, number]}
-            zoom={15}
-            style={{ height: '100%', width: '100%' }}
-            dragging={true}
-            scrollWheelZoom={false}
-            ref={setMap as any}
-          >
-            {/* @ts-ignore */}
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-            {/* @ts-ignore */}
-            <Marker
-              position={[selectedLocation?.lat || position.latitude, selectedLocation?.lng || position.longitude] as [number, number]}
-              draggable={true}
-              eventHandlers={{
-                dragend: (e: any) => {
-                  const marker = e.target;
-                  const position = marker.getLatLng();
-                  setSelectedLocation({ lat: position.lat, lng: position.lng });
-                },
-              }}
-            />
-          </MapContainer>
+          <GoogleParkingMap
+            center={position}
+            selectedLocation={selectedLocation}
+            onLocationChange={setSelectedLocation}
+          />
         </div>
       )}
 
