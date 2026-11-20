@@ -68,3 +68,10 @@ checked.
 16. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
     - Depends on: `integration-testing`
     - Update setup, architecture, database, algorithms, attribution, environment-variable, and limitation documentation. Deploy the frontend/backend/database and verify the public demo without exposing API keys.
+
+17. [ ] **Complete a terms-compliant Google Maps migration** (`google-maps-platform`)
+    - Use Google Places API (New) for destination search and nearby parking only alongside a Google map; replace the current Leaflet/OpenStreetMap map for views showing Google place data.
+    - Review routing and road-distance features so Google place content is not combined with non-Google map content.
+    - Remove shared persistent storage/indexing of Google place names and addresses; retain only data permitted by Google Maps Platform terms and caching rules.
+    - Requires a separate browser-restricted Maps JavaScript API key, Places API (New) enabled, appropriate billing/quota controls, and Google Maps attribution. Keep the existing key server-side.
+    - Blocked until the map, data handling, and browser key are migrated; Google’s current service terms prohibit using Places or Geocoding API content with a non-Google map.
