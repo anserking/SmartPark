@@ -8,6 +8,7 @@ from app.algorithms.graph import build_weighted_graph
 from app.services.cache import TTLCache
 from app.services.geocoding import DestinationCandidate
 from app.services.overpass import OverpassClient
+from app.models.road_network import RoadNode
 from app.services.road_network_ingestion import (
     KARACHI_ROAD_NETWORK_AREAS,
     fetch_karachi_road_network,
@@ -121,7 +122,7 @@ def test_ingestion_geocodes_all_regions_and_deduplicates_overlapping_roads() -> 
     )
 
     class StubLocator:
-        async def search(self, query: str, limit: int = 1, bias=None):
+        async def search_destinations(self, query: str, limit: int = 1, bias=None):
             location_queries.append(query)
             return (candidate,)
 
@@ -162,6 +163,7 @@ def test_persistence_replaces_road_tables_in_foreign_key_order() -> None:
         def __init__(self) -> None:
             self.deleted_tables: list[str] = []
             self.added_objects: list[object] = []
+            self.write_order: list[str] = []
             self.commits = 0
 
         def execute(self, statement: object) -> None:
@@ -169,6 +171,12 @@ def test_persistence_replaces_road_tables_in_foreign_key_order() -> None:
 
         def add_all(self, objects: list[object]) -> None:
             self.added_objects.extend(objects)
+            self.write_order.append(
+                "nodes" if isinstance(objects[0], RoadNode) else "edges"
+            )
+
+        def flush(self) -> None:
+            self.write_order.append("flush")
 
         def commit(self) -> None:
             self.commits += 1
@@ -184,6 +192,14 @@ def test_persistence_replaces_road_tables_in_foreign_key_order() -> None:
         "road_nodes",
     ]
     assert session.commits == 2
+    assert session.write_order == [
+        "nodes",
+        "flush",
+        "edges",
+        "nodes",
+        "flush",
+        "edges",
+    ]
     assert len(session.added_objects) == (len(network.nodes) + len(network.edges)) * 2
 
 

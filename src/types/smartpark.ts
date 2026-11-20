@@ -43,9 +43,35 @@ export type MapParkingFacility = {
   supportsCar: boolean | null;
   supportsBike: boolean | null;
   straightLineDistanceMeters: number;
-  availabilityStatus: 'unknown';
-  verificationStatus: 'unverified';
-  source: 'openstreetmap';
+  availabilityStatus: AvailabilityStatus;
+  verificationStatus: 'verified' | 'unverified';
+  source: string;
+};
+
+export type ParkingRecommendation = Omit<
+  MapParkingFacility,
+  'straightLineDistanceMeters'
+> & {
+  hourlyFee: number | null;
+  destinationDistanceMeters: number;
+  destinationDistanceMethod: 'road' | 'straight_line';
+  userDistanceMeters: number | null;
+};
+
+export type AdminParkingSpot = {
+  id: string;
+  name: string | null;
+  address: string | null;
+  location: Coordinate;
+  parkingType: string | null;
+  hourlyFee: number | null;
+  supportsCar: boolean | null;
+  supportsBike: boolean | null;
+  capacity: number | null;
+  availableSpaces: number | null;
+  availabilityStatus: AvailabilityStatus;
+  verificationStatus: 'verified' | 'unverified';
+  source: string;
 };
 
 export type RouteResult = {

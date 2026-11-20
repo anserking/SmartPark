@@ -1,200 +1,120 @@
-# Parking Spot Finder
+# SmartPark
 
-A modern web application for finding and sharing parking spots in your area. Built with React, TypeScript, Vite, Firebase, and Leaflet maps.
+SmartPark helps drivers in Karachi find parking near a destination, choose a
+vehicle-compatible facility, drive to it, confirm parking, and continue on foot.
 
-## Features
+## MVP features
 
-- 🔐 **Authentication**: Email/password and Google sign-in
-- 🗺️ **Interactive Maps**: Real-time map view with Leaflet integration
-- 📍 **Parking Spot Management**: Report, verify, and find nearby parking spots
-- 🚗 **Parking Sessions**: Track active parking sessions with reminders
-- 🏆 **Rewards System**: Earn points for contributing to the community
-- 📱 **Notifications**: Get notified about nearby spots and expiring sessions
-- ⚙️ **User Preferences**: Customize notification radius and parking preferences
-- 🌙 **Dark Mode**: Support for light/dark/system themes
+- Destination search and autocomplete powered by Google Places (New).
+- Nearby Google parking discovery with car/bike compatibility filtering.
+- Top-five recommendations ranked by imported road distance when the Karachi
+  road graph covers the area; otherwise, results are clearly labeled as
+  straight-line estimates.
+- A Google map with destination, user, parking, driving, and walking layers.
+- A guarded drive → park → walk → arrive navigation flow using OpenRouteService.
+- Admin-key-protected parking record management for create, edit, verify,
+  unavailable, and delete actions.
+- Installable PWA shell. Network-backed API results and map tiles still require
+  connectivity.
 
-## Tech Stack
+## Architecture
 
-- **Frontend**: React 18, TypeScript, Vite
-- **UI Components**: Radix UI, Tailwind CSS, shadcn/ui
-- **Maps**: Leaflet, React Leaflet
-- **Backend**: Firebase (Authentication, Firestore, Storage)
-- **State Management**: TanStack Query (React Query)
-- **Routing**: React Router v7
-- **Forms**: React Hook Form
-- **Notifications**: Sonner (Toast notifications)
+- **Frontend:** React, TypeScript, Vite, Tailwind, React Router, TanStack Query,
+  Zustand, and Google Maps JavaScript API.
+- **API:** FastAPI, Pydantic, SQLAlchemy 2, and Alembic.
+- **Database:** PostgreSQL with PostGIS. Use a hosted PostGIS-compatible
+  database such as Neon.
+- **External data:** Google Places for destination and parking search, Overpass
+  for imported OSM roads, and OpenRouteService for driving/walking directions.
 
-## Prerequisites
+The browser receives the public Maps JavaScript demo key. Keep database,
+admin, and OpenRouteService secrets in the backend environment.
 
-- Node.js 18+ (or Bun)
-- Firebase project with Firestore and Storage enabled
-- Google Maps API key (optional, for address geocoding)
+## Run locally
 
-## Setup Instructions
+Requirements: Node.js 18+, Python 3.11+, and a hosted PostgreSQL database with
+PostGIS enabled.
 
-### 1. Install Dependencies
+1. Install frontend dependencies:
 
-Using npm:
-```bash
-npm install
+   ```powershell
+   npm ci
+   Copy-Item .env.example .env.local
+   ```
+
+   Local Vite requests use a same-origin `/api` proxy to `http://localhost:8002`,
+   so browser CORS is not involved. Set `VITE_GOOGLE_MAPS_API_KEY` in
+   `.env.local` to load the map.
+
+2. Configure and run the backend:
+
+   ```powershell
+   Set-Location backend
+   py -3.11 -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r requirements.txt
+   Copy-Item .env.example .env
+   ```
+
+   Set `DATABASE_URL` to the hosted PostGIS connection string. Before exposing
+   admin tools, set a long random `ADMIN_API_KEY`. For directions, set
+   `OPENROUTESERVICE_API_KEY` and `GOOGLE_MAPS_API_KEY` for Places searches.
+   Enable Maps JavaScript API and Places API (New), with billing and quotas.
+   Set `CORS_ORIGINS` for any direct cross-origin
+   production calls.
+
+   ```powershell
+   python -m alembic upgrade head
+   python -m uvicorn app.main:app --reload --port 8002
+   ```
+
+   The health endpoint is `http://localhost:8002/api/health`. If that port is in
+   use, configure `VITE_API_PROXY_TARGET` in `.env.local` to match the backend's
+   host and port.
+
+3. In a second terminal at the repository root, start the frontend:
+
+   ```powershell
+   npm run dev
+   ```
+
+   Open the URL Vite prints, usually `http://localhost:5173` or
+   `http://localhost:5174`. The admin interface is at `/admin`; it remains
+   unavailable until `ADMIN_API_KEY` is configured on the backend.
+
+See [HOW_TO_RUN.md](./HOW_TO_RUN.md) for a compact Windows checklist and
+[backend/README.md](./backend/README.md) for API, data, and migration details.
+
+## Tests and build
+
+```powershell
+npm test
+npm run build
+Set-Location backend
+.\.venv\Scripts\python.exe -m pytest -q
 ```
 
-Or using Bun:
-```bash
-bun install
-```
+## Deployment
 
-### 2. Configure Firebase
+Deployment configuration and environment-variable guidance are in
+[HOW_TO_RUN.md](./HOW_TO_RUN.md). Deploy the frontend and API separately, apply
+Alembic migrations before starting the API, and set the Vite API URL at frontend
+build time. Do not commit `.env` files or provider credentials.
 
-**📖 For detailed step-by-step instructions, see [FIREBASE_SETUP.md](./FIREBASE_SETUP.md)**
+## Data, attribution, and known limits
 
-Quick overview:
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com/)
-2. Enable Authentication (Email/Password and Google)
-3. Create a Firestore database
-4. Enable Storage
-5. Copy your Firebase configuration
-6. Update `src/config/firebase.ts` with your config values
-
-The detailed guide includes:
-- Screenshot references
-- Security rules setup
-- Troubleshooting tips
-- Best practices
-
-### 4. Set Up Firestore Security Rules
-
-In Firebase Console, go to Firestore Database > Rules and add:
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-    match /parkingSpots/{spotId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update, delete: if request.auth != null && 
-        (resource.data.reporterId == request.auth.uid || 
-         resource.data.status == 'expired');
-    }
-    match /parkingSessions/{sessionId} {
-      allow read, write: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-    }
-    match /notifications/{notificationId} {
-      allow read, write: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-    }
-    match /rewards/{rewardId} {
-      allow read, write: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-    }
-    match /userPreferences/{userId} {
-      allow read, write: if request.auth != null && 
-        request.auth.uid == userId;
-    }
-  }
-}
-```
-
-### 5. Run the Development Server
-
-Using npm:
-```bash
-npm run dev
-```
-
-Or using Bun:
-```bash
-bun run dev
-```
-
-The app will be available at `http://localhost:5173`
-
-## Project Structure
-
-```
-src/
-├── components/          # Reusable UI components
-│   ├── ui/             # shadcn/ui components
-│   └── Layout.tsx      # Main layout with navigation
-├── config/             # Configuration files
-│   └── firebase.ts     # Firebase configuration
-├── hooks/              # Custom React hooks
-│   ├── useAuth.ts      # Authentication hook
-│   └── useGeolocation.ts # Geolocation hook
-├── pages/              # Page components
-│   ├── DashboardPage.tsx
-│   ├── LoginPage.tsx
-│   ├── RegisterPage.tsx
-│   ├── ParkingSpotsPage.tsx
-│   ├── ParkingSessionsPage.tsx
-│   ├── ProfilePage.tsx
-│   ├── RewardsPage.tsx
-│   ├── NotificationsPage.tsx
-│   └── SettingsPage.tsx
-├── services/           # API/service functions
-│   ├── auth.ts         # Authentication services
-│   ├── parkingSpots.ts # Parking spot services
-│   ├── parkingSessions.ts # Session services
-│   ├── rewards.ts      # Rewards services
-│   └── notifications.ts # Notification services
-├── types/              # TypeScript type definitions
-│   └── index.ts
-├── lib/                # Utility functions
-│   └── utils.ts
-├── App.tsx             # Main app component with routing
-└── main.tsx            # Entry point
-```
-
-## Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm run lint` - Run linter
-- `npm run format` - Format code
-
-## Features in Detail
-
-### Parking Spots
-- Report new parking spots with location, cost, time limits
-- View nearby spots on an interactive map
-- Verify spots reported by others
-- Filter by type (street, garage, lot), cost, and features
-
-### Parking Sessions
-- Start a parking session when you park
-- Set reminders for expiring parking time
-- Track session history
-- Automatic spot status updates
-
-### Rewards System
-- Earn 50 points for reporting a spot
-- Earn 10 points for verifying a spot
-- View leaderboard rankings
-- Track reward history
-
-### Notifications
-- Get notified about nearby parking spots
-- Receive reminders for expiring sessions
-- Track reward notifications
-- Mark notifications as read
-
-## Browser Support
-
-- Chrome (latest)
-- Firefox (latest)
-- Safari (latest)
-- Edge (latest)
-
-## License
-
-MIT
-
-## Contributing
+- The dashboard uses a Google map and displays Google Places parking. Nearby
+  facilities are not live occupancy data and show unknown availability until
+  maintained through SmartPark administration.
+- Straight-line recommendations are explicitly labeled whenever the imported
+  road graph is missing or does not cover the searched facilities.
+- Road import fetches bounded areas around Bahria University Karachi, Saddar,
+  and Clifton. Provider outages can prevent refreshing the graph; see
+  [backend/README.md](./backend/README.md).
+- OpenRouteService has no motorcycle-specific profile. SmartPark uses its
+  `driving-car` profile for cars and bikes and does not guarantee motorcycle
+  restrictions.
+- Offline mode caches only the application shell. Search, recommendations,
+  directions, and map tiles require a network connection.
 
 Contributions are welcome! Please feel free to submit a Pull Request.

@@ -90,7 +90,7 @@ export const useNavigationStore = create<NavigationState>((set, get) => ({
         'Vehicle type cannot change after navigation starts',
       );
     }
-    set({ vehicleType });
+    set({ vehicleType, selectedParking: null });
   },
   startDriving: (drivingRoute) => {
     const { status, selectedDestination, selectedParking } = get();

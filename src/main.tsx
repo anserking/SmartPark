@@ -3,6 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import "./index.css";
 import App from "./App.tsx";
 
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  void navigator.serviceWorker.register("/sw.js").catch((error: unknown) => {
+    console.error("SmartPark service worker registration failed", error);
+  });
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

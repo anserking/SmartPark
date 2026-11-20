@@ -105,4 +105,17 @@ describe('navigation store', () => {
     expect(state.drivingRoute).toBeNull();
     expect(state.walkingRoute).toBeNull();
   });
+
+  it('clears the selected parking when the vehicle type changes', () => {
+    const store = useNavigationStore.getState();
+    store.selectDestination(destination);
+    store.selectParking(parking);
+
+    useNavigationStore.getState().selectVehicleType('bike');
+
+    const state = useNavigationStore.getState();
+    expect(state.vehicleType).toBe('bike');
+    expect(state.selectedParking).toBeNull();
+    expect(state.status).toBe('destination_selected');
+  });
 });

@@ -14,7 +14,7 @@ import 'leaflet/dist/leaflet.css';
 import { useNavigationStore } from '@/stores/navigationStore';
 import type {
   Coordinate,
-  MapParkingFacility,
+  ParkingRecommendation,
   RouteResult,
 } from '@/types/smartpark';
 
@@ -50,9 +50,9 @@ const userIcon = L.divIcon({
 
 type SmartParkMapProps = {
   userLocation: Coordinate | null;
-  parkingFacilities: MapParkingFacility[];
+  parkingFacilities: ParkingRecommendation[];
   selectedSpotId: string | null;
-  onSelectSpot: (spot: MapParkingFacility) => void;
+  onSelectSpot: (spot: ParkingRecommendation) => void;
 };
 
 function MapCenter({ center }: { center: Coordinate }) {
@@ -112,7 +112,7 @@ export default function SmartParkMap({
     status !== 'arrived';
 
   return (
-    <div className="h-[500px] overflow-hidden rounded-lg">
+    <div className="h-full w-full overflow-hidden">
       <MapContainer
         center={[center.latitude, center.longitude]}
         zoom={13}
@@ -178,8 +178,11 @@ export default function SmartParkMap({
                   {spot.name && <p>{spot.name}</p>}
                   {spot.fee && <p>Fee: {spot.fee}</p>}
                   <p>
-                    {(spot.straightLineDistanceMeters / 1000).toFixed(1)} km
-                    straight-line
+                    {(spot.destinationDistanceMeters / 1000).toFixed(1)} km
+                    {' '}
+                    {spot.destinationDistanceMethod === 'road'
+                      ? 'by road to destination'
+                      : 'straight-line to destination'}
                   </p>
                 </div>
               </Popup>

@@ -4,6 +4,7 @@ geoalchemy2>=0.17,<1
 httpx>=0.28,<1
 psycopg[binary]>=3.2,<4
 pydantic-settings>=2.7,<3
+shapely>=2,<3
 sqlalchemy>=2.0,<3
 uvicorn[standard]>=0.34,<1
 

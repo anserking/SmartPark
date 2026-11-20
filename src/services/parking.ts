@@ -19,7 +19,7 @@ const parkingFacilitySchema: z.ZodType<MapParkingFacility> = z.object({
   straightLineDistanceMeters: z.number().nonnegative(),
   availabilityStatus: z.literal('unknown'),
   verificationStatus: z.literal('unverified'),
-  source: z.literal('openstreetmap'),
+  source: z.literal('google_maps'),
 });
 
 const parkingSearchResponseSchema = z.object({

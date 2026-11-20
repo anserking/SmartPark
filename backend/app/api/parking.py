@@ -1,20 +1,52 @@
 import math
-from typing import Annotated
+from dataclasses import dataclass
+from decimal import Decimal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from geoalchemy2.shape import to_shape
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
+from app.algorithms.graph import RoadEdgeRecord
+from app.db.session import get_db
+from app.models.parking_spot import ParkingSpot
+from app.models.road_network import RoadEdge, RoadNode
 from app.schemas.destination import CoordinateResponse
-from app.schemas.parking import ParkingFacilityResponse, ParkingSearchResponse
+from app.schemas.parking import (
+    ParkingFacilityResponse,
+    ParkingRecommendationResponse,
+    ParkingRecommendationSearchResponse,
+    ParkingSearchResponse,
+)
 from app.services.geography import validate_coordinate
-from app.services.overpass import OverpassClient, overpass_client
+from app.services.google_places import GooglePlacesClient
 from app.services.parking_normalization import NormalizedParking
+from app.services.parking_recommendations import (
+    ParkingRecommendationCandidate,
+    RankedRecommendation,
+    rank_parking_recommendations,
+)
 from app.services.providers import GeographicProviderError
 
 router = APIRouter(prefix="/api/parking", tags=["parking"])
 
 
-def get_overpass_client() -> OverpassClient:
-    return overpass_client
+@dataclass(frozen=True, slots=True)
+class _ParkingDetails:
+    candidate: ParkingRecommendationCandidate
+    name: str | None
+    address: str | None
+    parking_type: str
+    fee: str | None
+    capacity: int | None
+    availability_status: Literal["verified", "unverified", "unavailable", "unknown"]
+    verification_status: Literal["verified", "unverified"]
+    source: str
+
+
+def get_google_places_client() -> GooglePlacesClient:
+    return GooglePlacesClient()
 
 
 def _straight_line_distance_meters(
@@ -95,13 +127,214 @@ def _response(
     )
 
 
+def _recommendation_response(
+    ranked: RankedRecommendation,
+    details: _ParkingDetails,
+    user_latitude: float | None,
+    user_longitude: float | None,
+) -> ParkingRecommendationResponse:
+    candidate = details.candidate
+    user_distance = (
+        _straight_line_distance_meters(
+            user_latitude,
+            user_longitude,
+            candidate.latitude,
+            candidate.longitude,
+        )
+        if user_latitude is not None and user_longitude is not None
+        else None
+    )
+    return ParkingRecommendationResponse(
+        id=candidate.id,
+        name=details.name,
+        address=details.address,
+        location=CoordinateResponse(
+            latitude=candidate.latitude,
+            longitude=candidate.longitude,
+        ),
+        parking_type=details.parking_type,
+        fee=details.fee,
+        hourly_fee=(
+            float(candidate.hourly_fee)
+            if candidate.hourly_fee is not None
+            else None
+        ),
+        capacity=details.capacity,
+        supports_car=candidate.supports_car,
+        supports_bike=candidate.supports_bike,
+        destination_distance_meters=ranked.destination_distance_meters,
+        destination_distance_method=ranked.distance_method,
+        user_distance_meters=user_distance,
+        availability_status=details.availability_status,
+        verification_status=details.verification_status,
+        source=details.source,
+    )
+
+
+@router.get(
+    "/recommendations",
+    response_model=ParkingRecommendationSearchResponse,
+)
+async def recommend_parking(
+    latitude: Annotated[float, Query(ge=-90, le=90)],
+    longitude: Annotated[float, Query(ge=-180, le=180)],
+    vehicle_type: Annotated[Literal["car", "bike"], Query()] = "car",
+    radius_meters: Annotated[int, Query(ge=100, le=50000)] = 2000,
+    limit: Annotated[int, Query(ge=1, le=5)] = 5,
+    user_latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
+    user_longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
+    db: Session = Depends(get_db),
+    provider: GooglePlacesClient = Depends(get_google_places_client),
+) -> ParkingRecommendationSearchResponse:
+    if (user_latitude is None) != (user_longitude is None):
+        raise HTTPException(
+            status_code=422,
+            detail="User latitude and longitude must be provided together",
+        )
+
+    try:
+        facilities = await provider.nearby_parking(
+            latitude,
+            longitude,
+            radius_meters=radius_meters,
+        )
+    except GeographicProviderError as exc:
+        if exc.status_code == 429:
+            headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
+            raise HTTPException(
+                status_code=429,
+                detail="Google parking search rate limit reached",
+                headers=headers,
+            ) from exc
+        raise HTTPException(
+            status_code=503 if exc.status_code == 503 else 502,
+            detail="Google parking data is unavailable",
+        ) from exc
+
+    details_by_id: dict[str, _ParkingDetails] = {}
+    for facility in facilities:
+        response = _response(facility, latitude, longitude)
+        if response is None:
+            continue
+        candidate = ParkingRecommendationCandidate(
+            id=response.id,
+            latitude=response.location.latitude,
+            longitude=response.location.longitude,
+            supports_car=response.supports_car,
+            supports_bike=response.supports_bike,
+            hourly_fee=None,
+        )
+        details_by_id[response.id] = _ParkingDetails(
+            candidate=candidate,
+            name=response.name,
+            address=response.address,
+            parking_type=response.parking_type,
+            fee=response.fee,
+            capacity=response.capacity,
+            availability_status="unknown",
+            verification_status="unverified",
+            source=facility.source,
+        )
+
+    for spot in db.scalars(select(ParkingSpot)).all():
+        point = to_shape(spot.location)
+        if point.geom_type != "Point":
+            point = point.representative_point()
+        spot_latitude, spot_longitude = point.y, point.x
+        if (
+            _straight_line_distance_meters(
+                latitude,
+                longitude,
+                spot_latitude,
+                spot_longitude,
+            )
+            > radius_meters
+        ):
+            continue
+
+        spot_id = spot.osm_id or str(spot.id)
+        if spot.availability_status == "unavailable":
+            details_by_id.pop(spot_id, None)
+            continue
+        hourly_fee = (
+            Decimal(spot.hourly_fee)
+            if spot.hourly_fee is not None
+            else None
+        )
+        candidate = ParkingRecommendationCandidate(
+            id=spot_id,
+            latitude=spot_latitude,
+            longitude=spot_longitude,
+            supports_car=spot.supports_car,
+            supports_bike=spot.supports_bike,
+            hourly_fee=hourly_fee,
+        )
+        details_by_id[spot_id] = _ParkingDetails(
+            candidate=candidate,
+            name=spot.name,
+            address=spot.address,
+            parking_type=spot.parking_type or "parking",
+            fee=f"PKR {hourly_fee}/hour" if hourly_fee is not None else None,
+            capacity=spot.capacity,
+            availability_status=spot.availability_status,
+            verification_status=spot.verification_status,
+            source=spot.source,
+        )
+
+    node_locations: dict[int, tuple[float, float]] = {}
+    for node in db.scalars(select(RoadNode)).all():
+        point = to_shape(node.location)
+        node_locations[node.id] = (point.y, point.x)
+
+    edges = [
+        RoadEdgeRecord(
+            source=edge.source_node,
+            target=edge.target_node,
+            distance_meters=edge.distance_meters,
+            road_type=edge.road_type,
+            access_type=edge.access_type,
+            one_way=edge.one_way,
+            car_access=edge.car_access,
+            bike_access=edge.bike_access,
+            foot_access=edge.foot_access,
+            bike_one_way=edge.bike_one_way,
+        )
+        for edge in db.scalars(select(RoadEdge)).all()
+    ]
+
+    ranked = rank_parking_recommendations(
+        destination_latitude=latitude,
+        destination_longitude=longitude,
+        candidates=[
+            details.candidate for details in details_by_id.values()
+        ],
+        vehicle_type=vehicle_type,
+        node_locations=node_locations,
+        edges=edges,
+        max_results=limit,
+    )
+    distance_method = ranked[0].distance_method if ranked else "straight_line"
+    return ParkingRecommendationSearchResponse(
+        results=[
+            _recommendation_response(
+                recommendation,
+                details_by_id[recommendation.candidate.id],
+                user_latitude,
+                user_longitude,
+            )
+            for recommendation in ranked
+        ],
+        distance_method=distance_method,
+    )
+
+
 @router.get("/search", response_model=ParkingSearchResponse)
 async def search_parking(
     latitude: Annotated[float, Query(ge=-90, le=90)],
     longitude: Annotated[float, Query(ge=-180, le=180)],
     radius_meters: Annotated[int, Query(ge=100, le=50000)] = 1500,
     limit: Annotated[int, Query(ge=1, le=50)] = 10,
-    provider: OverpassClient = Depends(get_overpass_client),
+    provider: GooglePlacesClient = Depends(get_google_places_client),
 ) -> ParkingSearchResponse:
     try:
         facilities = await provider.nearby_parking(
@@ -114,12 +347,12 @@ async def search_parking(
             headers = {"Retry-After": exc.retry_after} if exc.retry_after else None
             raise HTTPException(
                 status_code=429,
-                detail="OpenStreetMap parking search rate limit reached",
+                detail="Google parking search rate limit reached",
                 headers=headers,
             ) from exc
         raise HTTPException(
-            status_code=502,
-            detail="OpenStreetMap parking data is unavailable",
+            status_code=503 if exc.status_code == 503 else 502,
+            detail="Google parking data is unavailable",
         ) from exc
 
     results = [

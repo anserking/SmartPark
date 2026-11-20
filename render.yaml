@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: smartpark-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: OPENROUTESERVICE_API_KEY
+        sync: false
+      - key: ADMIN_API_KEY
+        sync: false

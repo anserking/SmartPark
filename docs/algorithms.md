@@ -2,7 +2,9 @@
 
 The implementations live in `backend/app/algorithms/`. These are application
 algorithms used for destination suggestions and parking ranking, not
-decorative examples.
+decorative examples. The recommendations service uses the directed graph and
+Dijkstra when the imported network covers the destination and candidate
+facilities; otherwise it returns explicitly labeled straight-line estimates.
 
 | Structure/algorithm | Implementation and use | Time complexity | Extra space |
 | --- | --- | --- | --- |

@@ -1,30 +1,24 @@
-// @ts-nocheck
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useGeolocation } from '@/hooks/useGeolocation';
-import { useAuth } from '@/hooks/useAuth';
-import { getActiveSessionForUser } from '@/services/parkingSessions';
 import { useNavigationStore } from '@/stores/navigationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MapPin, Car, AlertCircle, Loader2 } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { formatDistanceToNow } from 'date-fns';
+import { AlertCircle, Car, Loader2, Navigation } from 'lucide-react';
 import DestinationSearch from '@/components/DestinationSearch';
-import SmartParkMap from '@/components/SmartParkMap';
-import { searchParkingFacilities } from '@/services/parking';
+import SmartParkMap from '@/components/GoogleSmartParkMap';
+import { getParkingRecommendations } from '@/services/parkingRecommendations';
 import { getRoute } from '@/services/routes';
 import type {
-  MapParkingFacility,
+  ParkingRecommendation,
   ParkingFacility,
   VehicleType,
 } from '@/types/smartpark';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
   const { position, isLoading: locationLoading, error: locationError } = useGeolocation();
-  const [selectedSpot, setSelectedSpot] = useState<MapParkingFacility | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<ParkingRecommendation | null>(null);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [isRouting, setIsRouting] = useState(false);
   const routeRequest = useRef<AbortController | null>(null);
@@ -55,10 +49,6 @@ export default function DashboardPage() {
         : undefined,
     [position?.latitude, position?.longitude],
   );
-  const destinationSearch = (
-    <DestinationSearch bias={searchBias} />
-  );
-
   useEffect(() => {
     setCurrentLocation(
       position
@@ -73,7 +63,7 @@ export default function DashboardPage() {
     setIsRouting(false);
     setNavigationError(null);
     setSelectedSpot(null);
-  }, [selectedDestination?.id]);
+  }, [selectedDestination?.id, vehicleType]);
 
   useEffect(
     () => () => {
@@ -90,29 +80,27 @@ export default function DashboardPage() {
     error: spotsError,
   } = useQuery({
     queryKey: [
-      'nearbySpots',
+      'parkingRecommendations',
       selectedDestination?.id,
       nearbyCenter?.latitude,
       nearbyCenter?.longitude,
+      vehicleType,
+      position?.latitude,
+      position?.longitude,
     ],
-    queryFn: () => {
+    queryFn: ({ signal }) => {
       if (!nearbyCenter) return [];
-      return searchParkingFacilities(nearbyCenter, 2000, 10);
+      return getParkingRecommendations(
+        nearbyCenter,
+        vehicleType,
+        position,
+        signal,
+      );
     },
     enabled: !!nearbyCenter,
   });
 
-  const { data: activeSession } = useQuery({
-    queryKey: ['activeSession', user?.id],
-    queryFn: () => {
-      if (!user?.id) return null;
-      return getActiveSessionForUser(user.id);
-    },
-    enabled: !!user?.id,
-    refetchInterval: 30000, // Refetch every 30 seconds
-  });
-
-  const handleSelectSpot = (spot: MapParkingFacility) => {
+  const handleSelectSpot = (spot: ParkingRecommendation) => {
     if (navigationStatus !== 'idle' && navigationStatus !== 'destination_selected') {
       return;
     }
@@ -124,14 +112,14 @@ export default function DashboardPage() {
 
     const facility: ParkingFacility = {
       id: spot.id,
-      name: spot.name || `${spot.parkingType.replaceAll('_', ' ')} parking`,
+      name: spot.name || `${spot.parkingType.replace(/_/g, ' ')} parking`,
       address: spot.address,
       location: {
         latitude: spot.location.latitude,
         longitude: spot.location.longitude,
       },
       parkingType: spot.parkingType,
-      hourlyFee: null,
+      hourlyFee: spot.hourlyFee,
       supportsCar: spot.supportsCar,
       supportsBike: spot.supportsBike,
       availabilityStatus: spot.availabilityStatus,
@@ -237,129 +225,118 @@ export default function DashboardPage() {
       ? `${(route.distanceMeters / 1000).toFixed(1)} km · ${Math.round(route.durationSeconds / 60)} min`
       : null;
 
+  const journeyDescription = {
+    idle: 'Search for a place to begin.',
+    destination_selected: 'Choose a parking option, then start driving.',
+    driving: 'Follow the route to your selected parking.',
+    parked: 'Parking confirmed. Continue on foot.',
+    walking: 'Follow the walking route to your destination.',
+    arrived: 'You have arrived at your destination.',
+  }[navigationStatus];
+
   return (
-    <div className="space-y-6">
-      {destinationSearch}
-      <div>
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground mt-1">
-          Search a destination to find parking near it.
-        </p>
+    <div className="relative h-full w-full overflow-hidden bg-[#e6e2d7]">
+      <div className="absolute inset-0">
+        <SmartParkMap
+          userLocation={position ?? null}
+          parkingFacilities={spots ?? []}
+          selectedSpotId={selectedSpot?.id ?? null}
+          onSelectSpot={handleSelectSpot}
+        />
       </div>
 
-      {locationLoading && (
-        <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Getting your location. You can still search for a destination.
-        </p>
-      )}
-      {locationError && (
-        <p role="alert" className="flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          Location is unavailable. Search remains available without location bias.
-        </p>
-      )}
-
-      {activeSession && (
-        <Card className="border-primary/50 bg-primary/5">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Car className="h-5 w-5" />
-              Active Parking Session
-            </CardTitle>
-            <CardDescription>
-              You have an active parking session
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">
-                  Started {formatDistanceToNow(activeSession.startTime, { addSuffix: true })}
-                </p>
-              </div>
-              <Link to="/sessions">
-                <Button>View Session</Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Map View</CardTitle>
-              <CardDescription>
-                {spotsLoading
-                  ? 'Loading spots...'
-                  : `${spots?.length || 0} mapped facilities ${selectedDestination ? 'near the destination' : 'near you'}`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SmartParkMap
-                userLocation={position ?? null}
-                parkingFacilities={spots ?? []}
-                selectedSpotId={selectedSpot?.id ?? null}
-                onSelectSpot={handleSelectSpot}
-              />
-            </CardContent>
-          </Card>
+      <section
+        aria-label="Destination search"
+        className="absolute left-3 right-3 top-3 z-[1000] rounded-2xl border border-[#d8d0c0] bg-[#fffdf8] p-4 shadow-lg shadow-[#302914]/10 sm:left-4 sm:right-auto sm:top-4 sm:w-[min(100%-2rem,28rem)]"
+      >
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[#7b6d59]">
+              Karachi, Pakistan
+            </p>
+            <h1 className="mt-1 text-lg font-semibold tracking-tight text-[#273b2b]">
+              Where are you going?
+            </h1>
+          </div>
+          <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#e7e5d7] text-[#496348]">
+            <Navigation aria-hidden="true" className="h-4 w-4" />
+          </span>
         </div>
+        <DestinationSearch bias={searchBias} />
+        {locationLoading && (
+          <p role="status" className="mt-3 flex items-center gap-2 text-xs text-[#625d51]">
+            <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+            Finding your location
+          </p>
+        )}
+        {locationError && (
+          <p role="alert" className="mt-3 flex items-center gap-2 text-xs text-[#8c2f24]">
+            <AlertCircle aria-hidden="true" className="h-4 w-4 shrink-0" />
+            Location is unavailable. Search still works without it.
+          </p>
+        )}
+      </section>
 
+      <aside
+        aria-label="Journey and parking recommendations"
+        className="absolute inset-x-0 bottom-0 z-[900] max-h-[53dvh] overflow-y-auto rounded-t-2xl border border-[#d8d0c0] bg-[#fffdf8]/95 p-3 shadow-[0_-8px_32px_rgba(48,41,20,0.12)] backdrop-blur-sm sm:inset-x-4 sm:bottom-4 sm:max-h-[48dvh] sm:rounded-2xl sm:p-4 lg:bottom-4 lg:left-4 lg:top-[12rem] lg:w-[25rem] lg:max-h-none"
+      >
+        <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#c8beaa] lg:hidden" />
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Journey</CardTitle>
-              <CardDescription>
-                {navigationStatus === 'idle' && 'Choose a destination and parking spot.'}
-                {navigationStatus === 'destination_selected' && 'Ready to start driving.'}
-                {navigationStatus === 'driving' && 'Drive to your selected parking spot.'}
-                {navigationStatus === 'parked' && 'Parking confirmed. Continue on foot.'}
-                {navigationStatus === 'walking' && 'Walk from parking to your destination.'}
-                {navigationStatus === 'arrived' && 'You have arrived.'}
-              </CardDescription>
+          <Card className="border-[#d8d0c0] bg-transparent shadow-none">
+            <CardHeader className="px-4 pb-2 pt-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="text-base text-[#273b2b]">Your journey</CardTitle>
+                  <CardDescription className="mt-1 leading-5 text-[#625d51]">
+                    {journeyDescription}
+                  </CardDescription>
+                </div>
+                <span className="rounded-full bg-[#e7e5d7] px-2.5 py-1 text-xs font-medium capitalize text-[#3d5942]">
+                  {navigationStatus.replace('_', ' ')}
+                </span>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent className="space-y-3 px-4 pb-4">
               {navigationStatus === 'destination_selected' && (
                 <>
-                  <p className="text-sm">
-                    Destination: {selectedDestination?.name}
+                  <p className="line-clamp-2 text-sm font-medium text-[#273b2b]">
+                    {selectedDestination?.name}
                   </p>
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      size="sm"
                       variant={vehicleType === 'car' ? 'default' : 'outline'}
                       aria-pressed={vehicleType === 'car'}
+                      className="min-h-11"
                       onClick={() => selectVehicleType('car')}
                     >
+                      <Car aria-hidden="true" />
                       Car
                     </Button>
                     <Button
                       type="button"
-                      size="sm"
                       variant={vehicleType === 'bike' ? 'default' : 'outline'}
                       aria-pressed={vehicleType === 'bike'}
+                      className="min-h-11"
                       onClick={() => selectVehicleType('bike')}
                     >
                       Bike
                     </Button>
                   </div>
                   {selectedParking && (
-                    <p className="text-sm">
+                    <p className="text-sm text-[#625d51]">
                       Parking: {selectedParking.name || 'Selected parking'}
                     </p>
                   )}
                   {!position && (
-                    <p role="alert" className="text-sm text-destructive">
+                    <p role="alert" className="text-sm text-[#8c2f24]">
                       Allow location access to start driving navigation.
                     </p>
                   )}
                   <Button
                     type="button"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     disabled={!position || !selectedParking || isRouting}
                     onClick={handleStartDriving}
                   >
@@ -370,13 +347,13 @@ export default function DashboardPage() {
               {navigationStatus === 'driving' && (
                 <>
                   {drivingRoute && (
-                    <p className="text-sm">
-                      Driving route: {routeSummary(drivingRoute)}
+                    <p className="text-sm font-medium text-[#273b2b]">
+                      Driving · {routeSummary(drivingRoute)}
                     </p>
                   )}
                   <Button
                     type="button"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     onClick={() => handleNavigationAction(confirmParking)}
                   >
                     Confirm parking
@@ -385,12 +362,12 @@ export default function DashboardPage() {
               )}
               {navigationStatus === 'parked' && (
                 <>
-                  <p className="text-sm">
-                    Destination: {selectedDestination?.name}
+                  <p className="text-sm text-[#625d51]">
+                    Walk to {selectedDestination?.name}.
                   </p>
                   <Button
                     type="button"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     disabled={isRouting}
                     onClick={handleStartWalking}
                   >
@@ -401,13 +378,13 @@ export default function DashboardPage() {
               {navigationStatus === 'walking' && (
                 <>
                   {walkingRoute && (
-                    <p className="text-sm">
-                      Walking route: {routeSummary(walkingRoute)}
+                    <p className="text-sm font-medium text-[#273b2b]">
+                      Walking · {routeSummary(walkingRoute)}
                     </p>
                   )}
                   <Button
                     type="button"
-                    className="w-full"
+                    className="min-h-11 w-full"
                     onClick={() => handleNavigationAction(completeJourney)}
                   >
                     I’ve arrived
@@ -417,7 +394,7 @@ export default function DashboardPage() {
               {navigationStatus === 'arrived' && (
                 <Button
                   type="button"
-                  className="w-full"
+                  className="min-h-11 w-full"
                   onClick={handleResetJourney}
                 >
                   Start a new journey
@@ -427,7 +404,7 @@ export default function DashboardPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full"
+                  className="min-h-11 w-full"
                   disabled={isRouting}
                   onClick={handleResetJourney}
                 >
@@ -435,136 +412,101 @@ export default function DashboardPage() {
                 </Button>
               )}
               {navigationError && (
-                <p role="alert" className="text-sm text-destructive">
+                <p role="alert" className="text-sm text-[#8c2f24]">
                   {navigationError}
                 </p>
               )}
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>
-                {selectedDestination ? 'Mapped parking near destination' : 'Nearby mapped parking'}
-              </CardTitle>
-              <CardDescription>
-                {spotsLoading
-                  ? 'Loading...'
-                  : `${spots?.length || 0} OpenStreetMap facilities`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {spotsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                </div>
-              ) : spotsErrorOccurred ? (
-                <p role="alert" className="text-sm text-destructive">
-                  Could not load mapped parking
-                  {spotsError instanceof Error ? `: ${spotsError.message}` : '.'}
-                </p>
-              ) : !nearbyCenter ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>Choose a destination or allow location access to find mapped parking.</p>
-                </div>
-              ) : spots && spots.length > 0 ? (
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {spots.map((spot) => (
-                    <Card
-                      key={spot.id}
-                      className={`cursor-pointer transition-colors ${selectedSpot?.id === spot.id ? 'border-primary' : ''
-                        }`}
-                      onClick={() => handleSelectSpot(spot)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <Badge variant="outline" className="capitalize">
-                            {spot.parkingType.replaceAll('_', ' ')}
-                          </Badge>
-                          <Badge variant="secondary" className="text-xs">
-                            OpenStreetMap
-                          </Badge>
-                        </div>
-                        <p className="text-sm font-medium mb-1">
-                          {spot.name || 'Mapped parking'}
-                        </p>
-                        {spot.address && (
-                          <p className="mb-2 text-xs text-muted-foreground">
-                            {spot.address}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span>
-                            {spot.straightLineDistanceMeters >= 1000
-                              ? `${(spot.straightLineDistanceMeters / 1000).toFixed(1)} km`
-                              : `${Math.round(spot.straightLineDistanceMeters)} m`}{' '}
-                            straight-line
-                          </span>
-                          {spot.fee && <span>Fee: {spot.fee}</span>}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No mapped parking facilities found nearby.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {selectedSpot && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Spot Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium mb-1">Type</p>
-                <Badge className="capitalize">
-                  {selectedSpot.parkingType.replaceAll('_', ' ')}
-                </Badge>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Fee</p>
-                <p>{selectedSpot.fee || 'Not specified'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Capacity</p>
-                <p>{selectedSpot.capacity ?? 'Not specified'}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Car access</p>
-                <p>
-                  {selectedSpot.supportsCar === null
-                    ? 'Not specified'
-                    : selectedSpot.supportsCar ? 'Yes' : 'No'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Bike access</p>
-                <p>
-                  {selectedSpot.supportsBike === null
-                    ? 'Not specified'
-                    : selectedSpot.supportsBike ? 'Yes' : 'No'}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-medium mb-1">Distance</p>
-                <p>
-                  {(selectedSpot.straightLineDistanceMeters / 1000).toFixed(1)} km straight-line
-                </p>
-              </div>
+          <section aria-labelledby="recommendations-heading" className="space-y-3">
+            <div className="flex items-baseline justify-between gap-3 px-1">
+              <h2 id="recommendations-heading" className="text-base font-semibold text-[#273b2b]">
+                {selectedDestination ? 'Parking near destination' : 'Nearby parking'}
+              </h2>
+              <span className="text-xs text-[#625d51]">
+                {spots?.length ?? 0} options · top five
+              </span>
             </div>
-          </CardContent>
-        </Card>
-      )}
+            {spotsLoading ? (
+              <p role="status" className="flex items-center gap-2 px-1 py-3 text-sm text-[#625d51]">
+                <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+                Finding parking nearby
+              </p>
+            ) : spotsErrorOccurred ? (
+              <p role="alert" className="rounded-lg bg-[#f7e6e1] p-3 text-sm text-[#8c2f24]">
+                Parking recommendations are unavailable
+                {spotsError instanceof Error ? `: ${spotsError.message}` : '.'}
+              </p>
+            ) : !nearbyCenter ? (
+              <p className="rounded-lg bg-[#f1eee5] p-3 text-sm text-[#625d51]">
+                Search for a destination to see nearby parking.
+              </p>
+            ) : spots && spots.length > 0 ? (
+              <ul className="space-y-2">
+                {spots.map((spot) => (
+                  <li key={spot.id}>
+                    <button
+                      type="button"
+                      aria-pressed={selectedSpot?.id === spot.id}
+                      disabled={
+                        navigationStatus !== 'idle' &&
+                        navigationStatus !== 'destination_selected'
+                      }
+                      onClick={() => handleSelectSpot(spot)}
+                      className={`w-full rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#496348] disabled:cursor-not-allowed disabled:opacity-60 ${
+                        selectedSpot?.id === spot.id
+                          ? 'border-[#496348] bg-[#edf0e7]'
+                          : 'border-[#e2ddcf] bg-white hover:bg-[#f8f6f0]'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-[#273b2b]">
+                            {spot.name || `${spot.parkingType.replace(/_/g, ' ')} parking`}
+                          </span>
+                          {spot.address && (
+                            <span className="mt-1 block truncate text-xs text-[#625d51]">
+                              {spot.address}
+                            </span>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-full bg-[#f1eee5] px-2 py-1 text-[11px] text-[#625d51]">
+                          {spot.source === 'google_maps' ? 'Google Maps' : spot.source === 'openstreetmap' ? 'OSM' : 'SmartPark'}
+                        </span>
+                      </div>
+                      <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[#625d51]">
+                        <span>
+                          {spot.destinationDistanceMeters >= 1000
+                            ? `${(spot.destinationDistanceMeters / 1000).toFixed(1)} km`
+                            : `${Math.round(spot.destinationDistanceMeters)} m`}{' '}
+                          {spot.destinationDistanceMethod === 'road' ? 'by road' : 'straight-line'}
+                        </span>
+                        {spot.userDistanceMeters !== null && (
+                          <span>{(spot.userDistanceMeters / 1000).toFixed(1)} km from you</span>
+                        )}
+                        {spot.fee && <span>{spot.fee}</span>}
+                        <span>
+                          {spot.verificationStatus === 'verified'
+                            ? 'Verified'
+                            : 'Not verified'}
+                        </span>
+                        {spot.availabilityStatus === 'unavailable' && (
+                          <span>Unavailable</span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-lg bg-[#f1eee5] p-3 text-sm text-[#625d51]">
+                No compatible parking facilities were found nearby.
+              </p>
+            )}
+          </section>
+        </div>
+      </aside>
     </div>
   );
 }

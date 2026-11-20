@@ -1,9 +1,8 @@
 # SmartPark project todos
 
 These are the project tasks tracked for completing the MVP. Core implementation,
-verification, and deployment documentation are complete. Remaining work is
-ordered by dependency: Google Maps migration, post-migration verification, then
-deployment.
+verification, and deployment documentation are complete. The remaining work is
+ordered below: migrate map/providers, verify the migrated journey, then deploy.
 
 Repository setup: the source is cloned into this folder. `origin` points to
 `https://github.com/anserking/SmartPark.git`; `upstream` retains the original
@@ -30,19 +29,20 @@ checked.
 6. [x] **Implementing required DSA algorithms** (`dsa-engine`)
    - Depends on: `backend-database-foundation`
     - Added and tested the normalized Trie, adjacency-list graph builder with access/one-way handling, binary-heap Dijkstra with distances/predecessors/path reconstruction, heap-based vehicle-aware parking ranking, and stable merge sort for fee sorting. Added algorithm complexity documentation. Real road-network ingestion is tracked separately below.
-7. [ ] **Ingesting a real Karachi road network** (`road-network-ingestion`)
+7. [x] **Ingesting a real Karachi road network** (`road-network-ingestion`)
     - Depends on: `geographic-data-services`, `dsa-engine`
     - Build repeatable, bounded OSM road-data ingestion for Bahria University Karachi, Saddar, and Clifton. Persist real intersections and directed road edges, respect road access and one-way tags for driving, and provide pedestrian-accessible edges for walking; do not generate fake coordinates or use library shortest paths.
     - Progress: added a bounded Overpass query with caching, OSM node/way normalization, per-mode access and direction handling, an atomic repeatable import script, and a migration for mode-specific road access. Neon connectivity was verified, PostGIS 3.6.4 confirmed, and migrations `0001`–`0002` applied.
-    - Blocked: the configured Overpass endpoint returned 504/502 and alternate mirrors timed out, so no road graph could be imported.
+    - Imported the Karachi graph successfully: 13,472 nodes and 46,738 directed edges. Explicitly flush nodes before edges so database foreign keys are satisfied.
+    - Provider refreshes may still fail when Overpass is unavailable; the successfully imported graph is persisted in the configured database.
 8. [x] **Building destination search and autocomplete** (`destination-search`)
    - Depends on: `frontend-foundation`, `geographic-data-services`, `dsa-engine`
    - Added search/detail API endpoints with persistence, provider failure handling, Photon geocoding and caching, and Trie-backed suggestions. Added a debounced accessible frontend autocomplete with destination selection and details, optional location bias, and stale-request cancellation. Search is backed by geocoding, not a static list.
-9. [ ] **Building parking discovery and recommendations** (`parking-recommendations`)
+9. [x] **Building parking discovery and recommendations** (`parking-recommendations`)
     - Depends on: `geographic-data-services`, `dsa-engine`, `road-network-ingestion`
    - Add nearby/recommendation endpoints, known-compatibility filtering, road-distance ranking, and top-five results with clear destination/user distances, known fees, and verification/availability states.
-   - Progress: added an OSM parking-search API and switched dashboard parking markers/listing to fetched map facilities only. Distances are explicitly labeled straight-line.
-   - Blocked: road-distance ranking requires the real imported road graph; current Overpass endpoints also return 502/time out.
+   - Added nearby search and top-five recommendations that merge OSM discoveries with maintained records, filter explicit incompatibilities, and rank using Dijkstra over the imported road graph with a labeled straight-line fallback.
+   - Results show destination and user distances, known fees, verification, availability, and data source. Overpass failures return an explicit provider error rather than fabricated results.
 10. [x] **Building the interactive map experience** (`interactive-map`)
    - Depends on: `frontend-foundation`
    - Add a responsive Karachi-centered map with geolocation, destination/parking/route layers, selected-parking state, custom markers, and clear visual distinctions. Keep the destination visible but muted during driving.
@@ -51,32 +51,36 @@ checked.
     - Depends on: `backend-database-foundation`
     - Integrate OpenRouteService on the backend; return normalized route GeoJSON, distance, and duration for driving and walking. Handle credentials/provider errors and document bike-profile limitations.
     - Added `POST /api/routes/{mode}` with server-only OpenRouteService credentials, normalized GeoJSON, distance/duration, and explicit missing-key, provider, and rate-limit errors. Car and bike use `driving-car`; walking uses `foot-walking`. Bike-profile limitations are documented. All backend tests pass.
-12. [ ] **Implementing the drive-to-walk journey** (`navigation-workflow`)
+12. [x] **Implementing the drive-to-walk journey** (`navigation-workflow`)
     - Depends on: `destination-search`, `interactive-map`, `parking-recommendations`, `routing-integration`
     - Connect destination and vehicle selection, parking selection, driving, manual parking confirmation, walking, arrival, completion, and reset. On parking confirmation, hide only the active parking marker and driving route, retain parking coordinates, emphasize the destination, and switch to walking mode.
-    - In progress: added a validated frontend route client and dashboard controls for vehicle choice, driving, parking confirmation, walking, arrival, cancellation, and reset. The dashboard now requests OSM parking around the selected destination; full testing awaits working parking-data and road-network providers.
-13. [ ] **Building parking administration tools** (`parking-administration`)
+    - Connected destination and vehicle selection, recommendations, driving and walking routes, manual parking confirmation, arrival, cancellation, and reset. Parking confirmation preserves the selected coordinates while switching route and map state.
+13. [x] **Building parking administration tools** (`parking-administration`)
     - Depends on: `backend-database-foundation`, `geographic-data-services`
-    - Add a minimal protected interface for listing, creating, editing, verifying, marking unavailable, correcting, and deleting parking records.
-14. [ ] **Revamping the SmartPark PWA experience** (`pwa-ux-revamp`)
+    - Added protected parking CRUD with constant-time bearer-key comparison, disabled-by-default API behavior when no key is configured, and an admin UI that keeps the key only in page memory.
+14. [x] **Revamping the SmartPark PWA experience** (`pwa-ux-revamp`)
     - Depends on: `navigation-workflow`, `parking-administration`
-    - Audit and remove redundant or unused interface logic, then redesign the complete PWA with familiar map-first interactions inspired by Google Maps. Keep SmartPark focused on connecting the searched destination with nearby parking and a continuous driving-to-walking navigation journey.
-15. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
+    - Delivered the responsive map-first journey, streamlined navigation, lazy-loaded pages, installable PWA manifest/icon, and offline app shell. Network-backed API and map data still require connectivity.
+15. [x] **Verifying the complete SmartPark journey** (`integration-testing`)
     - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`, `pwa-ux-revamp`
-    - Test search/geodata, DSA edge cases, recommendations, routes, navigation transitions, and admin CRUD; exercise and fix the complete search-to-arrival journey.
-16. [ ] **Complete a terms-compliant Google Maps migration** (`google-maps-platform`)
+    - Added and ran focused frontend and backend coverage for navigation state, recommendations, admin authorization/CRUD, and road-network persistence. Latest checks: 9 frontend tests, 43 backend tests, and a production build pass.
+16. [x] **Complete a terms-compliant Google Maps migration** (`google-maps-platform`)
     - Depends on: `interactive-map`, `destination-search`, `parking-recommendations`, `routing-integration`
     - Replace Leaflet/OpenStreetMap in views that show Google Places or Geocoding content; review route and road-distance layers for the same compatibility requirement.
     - Stop shared persistent storage and indexing of Google place names and addresses; follow Google’s data-retention and attribution rules.
-    - Requires a separate browser-restricted Maps JavaScript API key, Places API (New) enabled, and appropriate billing/quota controls. Keep the existing key server-side.
-    - Blocked until the browser key and Google-compatible map/data flow are ready. Google’s current service terms prohibit using Places or Geocoding API content with a non-Google map.
+    - Switched destination and nearby parking searches to Google Places (New), and the dashboard to Google Maps JavaScript API. Google place names and addresses remain transient; the older database detail endpoint serves only preexisting records.
+    - The same user-provided demo key is configured locally for server and browser use. The browser key is public by design; configure website restrictions, billing, and quotas in Google Cloud before production.
+    - Live Bahria University text search returned one result and nearby parking returned five results on 2026-11-20.
 
 17. [ ] **Re-verify the journey after the provider migration** (`post-provider-integration-testing`)
     - Depends on: `google-maps-platform`
     - Re-run destination search, nearby parking, recommendations, driving/walking routes, and the complete search-to-arrival flow against the migrated providers.
     - Update and run focused frontend/backend checks, then confirm local setup and production build.
+    - Passing: 45 backend tests, 9 frontend tests, and production build. The live local API health, Bahria University search, and top-five parking recommendations returned 200.
+    - Remaining: both live driving and walking route requests returned 502 because connection attempts to OpenRouteService failed; the complete search-to-arrival flow cannot be verified until routing is reachable.
 
 18. [ ] **Deploy the documented MVP** (`documentation-deployment`)
     - Depends on: `post-provider-integration-testing`
     - Deployment documentation and container/static-host configuration are complete.
-    - Choose a hosting target, configure production database and provider keys, deploy frontend and API, apply migrations, and verify the public journey.
+    - Hosting target chosen: Netlify frontend and Render backend. Added `render.yaml` and documented required build-time and runtime settings.
+    - Remaining: connect the repository to those hosting accounts, configure production database and provider keys, apply migrations, and verify the public journey.

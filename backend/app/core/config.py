@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     environment: str = "development"
     database_url: str
     cors_origins: list[str] = ["http://localhost:5173"]
+    admin_api_key: SecretStr | None = None
+    google_maps_api_key: SecretStr | None = None
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     photon_url: str = "https://photon.komoot.io/api/"
     openrouteservice_api_key: SecretStr | None = None

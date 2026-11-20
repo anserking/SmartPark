@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
-const apiBaseUrl = (
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
-).replace(/\/+$/, '');
+const browserOrigin =
+  typeof window === 'undefined' ? 'http://localhost:5173' : window.location.origin;
+const apiBaseUrl = import.meta.env.DEV
+  ? browserOrigin
+  : (import.meta.env.VITE_API_BASE_URL || browserOrigin).replace(/\/+$/, '');
 
 export class ApiError extends Error {
   constructor(

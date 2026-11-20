@@ -2,7 +2,8 @@
 
 ## Local setup
 
-Requires Python 3.11+ and PostgreSQL with PostGIS enabled.
+Requires Python 3.11+ and a PostgreSQL database with PostGIS enabled. A hosted
+PostGIS-compatible database such as Neon is suitable.
 
 ```powershell
 cd backend
@@ -12,19 +13,21 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Set `DATABASE_URL` in `.env` to a PostgreSQL connection string. The initial
+Set `DATABASE_URL` in `.env` to a PostgreSQL connection string. Set a long,
+random `ADMIN_API_KEY` before exposing the administration API. Configure
+`GOOGLE_MAPS_API_KEY` for Places API (New) destination and parking searches.
+Configure `CORS_ORIGINS` as a JSON array containing the frontend origins. The initial
 migration creates the PostGIS extension and SmartPark tables; the database role
 must be allowed to create the extension or the extension must already be
 installed.
 
 ```powershell
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8002
 ```
 
-The health endpoint is `http://localhost:8000/api/health`. It checks both the
-API and its database connection. Configure `CORS_ORIGINS` as a JSON array when
-the frontend runs from a different origin.
+The health endpoint is `http://localhost:8002/api/health`. It checks both the
+API and its database connection.
 
 ## Karachi road network
 
@@ -44,9 +47,8 @@ refreshing OSM data; normal map interactions do not make these requests.
 
 ## Destination search
 
-`GET /api/destinations/search` geocodes a destination with Photon, stores
-results in the database, and returns matching cached suggestions from the
-process-local Trie index.
+`GET /api/destinations/search` searches Google Places (New) and returns
+transient suggestions. It does not store Google place names or addresses.
 
 | Parameter | Requirement |
 | --- | --- |
@@ -55,19 +57,46 @@ process-local Trie index.
 | `latitude` and `longitude` | Optional location bias; provide both together |
 
 Search results contain an ID, name, category, address, and latitude/longitude.
-Use `GET /api/destinations/{id}` to retrieve a stored destination. Provider
+`GET /api/destinations/{id}` only retrieves older stored destinations. Provider
 rate limits return `429` and may include `Retry-After`; other provider failures
 return `502`.
 
-## Map parking search
+## Parking search and recommendations
 
-`GET /api/parking/search` fetches mapped OSM parking facilities from Overpass
+`GET /api/parking/search` fetches Google Places parking facilities
 near the requested coordinates. It accepts `latitude`, `longitude`,
 `radius_meters` (100–50000, default 1500), and `limit` (1–50, default 10).
-Results include OSM tags when available and a clearly labeled straight-line
-distance; this is not a road-route ranking and does not imply live availability.
-Parking features are shown with OpenStreetMap attribution. Provider rate limits
-return `429`; other provider failures return `502`.
+Results include Google place details and a clearly labeled straight-line
+distance; it does not imply live availability.
+
+`GET /api/parking/recommendations` accepts destination `latitude` and
+`longitude`, `vehicle_type` (`car` or `bike`), an optional paired
+`user_latitude`/`user_longitude`, `radius_meters` (100–50000, default 2000), and
+`limit` (1–5, default 5). Explicitly incompatible parking is excluded. Results
+include destination distance, optional straight-line distance from the user,
+known fee, verification state, availability state, and data source. Distance
+methods are explicit: `road` uses Dijkstra over the imported directed Karachi
+network; `straight_line` is an honest fallback when the graph does not cover
+the search. No straight-line estimate is represented as a road distance.
+
+Google facilities are marked unverified with availability unknown.
+Admin-maintained database records are included in recommendations.
+Provider rate limits return `429`; other provider failures return `502`.
+
+## Parking administration
+
+Set `ADMIN_API_KEY` in the backend environment. Every `/api/admin/parking`
+request requires `Authorization: Bearer <ADMIN_API_KEY>`. If no key is
+configured, the API returns `503` and remains disabled.
+
+- `GET /api/admin/parking` lists records.
+- `POST /api/admin/parking` creates a record.
+- `PATCH /api/admin/parking/{id}` edits fields, verifies a record, or changes
+  its availability.
+- `DELETE /api/admin/parking/{id}` removes a record.
+
+The `/admin` frontend prompts for the key and keeps it only in page memory. Use
+HTTPS in production and rotate the key if it is exposed.
 
 ## Driving and walking routes
 
@@ -101,5 +130,12 @@ attribution in the app.
 ## Tests
 
 ```powershell
-pytest
+python -m pytest -q
 ```
+
+## Production container
+
+Build the API image from the `backend` directory. Configure environment values
+through the hosting provider; do not copy `.env` into the image. Apply
+`python -m alembic upgrade head` as a release/pre-deploy step before starting
+`uvicorn app.main:app --host 0.0.0.0 --port 8000`.

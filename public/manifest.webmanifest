@@ -1,0 +1,18 @@
+{
+  "name": "SmartPark — Parking and navigation in Karachi",
+  "short_name": "SmartPark",
+  "description": "Find parking near your destination and continue on foot.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f0e7",
+  "theme_color": "#496348",
+  "icons": [
+    {
+      "src": "/smartpark-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

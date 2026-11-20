@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.algorithms.graph import RoadEdgeRecord
 from app.models.road_network import RoadEdge, RoadNode
-from app.services.geocoding import PhotonGeocoder, geocoder
+from app.services.google_places import GooglePlacesClient
 from app.services.overpass import OverpassClient, overpass_client
 from app.services.providers import GeographicProviderError
 from app.services.road_network_normalization import (
@@ -58,16 +58,17 @@ def _edge_identity(edge: RoadEdgeRecord) -> tuple[object, ...]:
 
 async def fetch_karachi_road_network(
     provider: OverpassClient = overpass_client,
-    locator: PhotonGeocoder = geocoder,
+    locator: GooglePlacesClient | None = None,
 ) -> NormalizedRoadNetwork:
     nodes: dict[int, RoadNodeCoordinate] = {}
     edges: dict[tuple[object, ...], RoadEdgeRecord] = {}
 
+    locator = locator or GooglePlacesClient()
     for area in KARACHI_ROAD_NETWORK_AREAS:
-        candidates = await locator.search(area.search_query, limit=1)
+        candidates = await locator.search_destinations(area.search_query, limit=1)
         if not candidates:
             raise GeographicProviderError(
-                "Photon", f"no geocoding result for {area.name}"
+                "Google Places", f"no geocoding result for {area.name}"
             )
         center = candidates[0]
         region = await provider.roads_within(
@@ -110,6 +111,7 @@ def replace_road_network(db: Session, network: NormalizedRoadNetwork) -> None:
             for node in network.nodes
         ]
     )
+    db.flush()
     db.add_all(
         [
             RoadEdge(
