@@ -71,12 +71,16 @@ distance; it does not imply live availability.
 
 `GET /api/parking/recommendations` accepts destination `latitude` and
 `longitude`, `vehicle_type` (`car` or `bike`), an optional paired
-`user_latitude`/`user_longitude`, `radius_meters` (100–50000, default 2000), and
+`user_latitude`/`user_longitude`, optional `destination_name`, `radius_meters`
+(100–50000, default 2000), and
 `limit` (1–5, default 5). Explicitly incompatible parking is excluded. Results
 include destination distance, optional straight-line distance from the user,
 known fee, verification state, availability state, and data source. Distance
 methods are explicit: active Google parking recommendations use `straight_line`.
 The driving and walking route endpoints return actual Google road paths.
+When a destination name is provided, a Google text search supplements Nearby
+Search to find named car parks classified under other place types. Results are
+restricted to the nearest populated band: 300 m, then 600 m, 1 km, then 2 km.
 
 Google facilities are marked unverified with availability unknown.
 Admin-maintained database records are included in recommendations.

@@ -45,3 +45,37 @@ def test_google_provider_requires_key(monkeypatch):
     with pytest.raises(GeographicProviderError) as error:
         asyncio.run(GooglePlacesClient().search_destinations('Bahria University Karachi'))
     assert error.value.status_code == 503
+
+
+def test_destination_text_search_recovers_misclassified_car_park(monkeypatch):
+    monkeypatch.setattr(settings, 'google_maps_api_key', SecretStr('test-key'))
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if request.url.path.endswith(':searchNearby'):
+            return httpx.Response(200, json={'places': []})
+        return httpx.Response(200, json={'places': [{
+            'id': 'bahria-car-park',
+            'displayName': {'text': 'Bahria University Car Park'},
+            'formattedAddress': 'National Stadium Road, Karachi',
+            'location': {'latitude': 24.8931744, 'longitude': 67.086021},
+            'types': ['premise', 'street_address'],
+        }, {
+            'id': 'not-parking',
+            'displayName': {'text': 'Bahria Auditorium'},
+            'location': {'latitude': 24.8932, 'longitude': 67.0861},
+            'types': ['premise'],
+        }]})
+
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            return await GooglePlacesClient(client).nearby_parking(
+                24.893277, 67.0881814, radius_meters=300,
+                destination_name='Bahria University Karachi',
+            )
+
+    results = asyncio.run(run())
+    assert [place.name for place in results] == ['Bahria University Car Park']
+    assert len(requests) == 2
+    assert json.loads(requests[1].content)['textQuery'] == 'parking near Bahria University Karachi'

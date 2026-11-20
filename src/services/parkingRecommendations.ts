@@ -41,6 +41,7 @@ const responseSchema = z.object({
 
 export async function getParkingRecommendations(
   destination: Coordinate,
+  destinationName: string,
   vehicleType: VehicleType,
   userLocation?: Coordinate | null,
   signal?: AbortSignal,
@@ -51,6 +52,7 @@ export async function getParkingRecommendations(
     vehicle_type: vehicleType,
     radius_meters: '2000',
     limit: '5',
+    destination_name: destinationName,
   });
   if (userLocation) {
     parameters.set('user_latitude', String(userLocation.latitude));

@@ -7,10 +7,12 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Car, Loader2, Navigation } from 'lucide-react';
 import DestinationSearch from '@/components/DestinationSearch';
+import SourceLocationSearch, { type SourceSelection } from '@/components/SourceLocationSearch';
 import SmartParkMap from '@/components/GoogleSmartParkMap';
 import { getParkingRecommendations } from '@/services/parkingRecommendations';
 import { getRoute } from '@/services/routes';
 import type {
+  Coordinate,
   ParkingRecommendation,
   ParkingFacility,
   VehicleType,
@@ -19,6 +21,8 @@ import type {
 export default function DashboardPage() {
   const { position, isLoading: locationLoading, error: locationError } = useGeolocation();
   const [selectedSpot, setSelectedSpot] = useState<ParkingRecommendation | null>(null);
+  const [sourceSelection, setSourceSelection] = useState<SourceSelection | null>(null);
+  const [pickingSourceOnMap, setPickingSourceOnMap] = useState(false);
   const [navigationError, setNavigationError] = useState<string | null>(null);
   const [isRouting, setIsRouting] = useState(false);
   const routeRequest = useRef<AbortController | null>(null);
@@ -42,6 +46,7 @@ export default function DashboardPage() {
   const startWalking = useNavigationStore((state) => state.startWalking);
   const completeJourney = useNavigationStore((state) => state.completeJourney);
   const clearDestination = useNavigationStore((state) => state.clearDestination);
+  const sourceLocation = sourceSelection?.location ?? position;
   const searchBias = useMemo(
     () =>
       position
@@ -72,7 +77,7 @@ export default function DashboardPage() {
     [],
   );
 
-  const nearbyCenter = selectedDestination?.location ?? position;
+  const nearbyCenter = selectedDestination?.location;
   const {
     data: spots,
     isLoading: spotsLoading,
@@ -82,22 +87,24 @@ export default function DashboardPage() {
     queryKey: [
       'parkingRecommendations',
       selectedDestination?.id,
+      selectedDestination?.name,
       nearbyCenter?.latitude,
       nearbyCenter?.longitude,
       vehicleType,
-      position?.latitude,
-      position?.longitude,
+      sourceLocation?.latitude,
+      sourceLocation?.longitude,
     ],
     queryFn: ({ signal }) => {
       if (!nearbyCenter) return [];
       return getParkingRecommendations(
         nearbyCenter,
+        selectedDestination?.name ?? '',
         vehicleType,
-        position,
+        sourceLocation,
         signal,
       );
     },
-    enabled: !!nearbyCenter,
+    enabled: !!selectedDestination && !!nearbyCenter,
   });
 
   const handleSelectSpot = (spot: ParkingRecommendation) => {
@@ -158,14 +165,14 @@ export default function DashboardPage() {
   };
 
   const handleStartDriving = () => {
-    if (!position || !selectedDestination || !selectedParking) {
+    if (!sourceLocation || !selectedDestination || !selectedParking) {
       setNavigationError(
-        'Select a destination, parking spot, and allow location access to start driving.',
+        'Select a destination, parking spot, and starting location to start driving.',
       );
       return;
     }
     const destinationId = selectedDestination.id;
-    const origin = { latitude: position.latitude, longitude: position.longitude };
+    const origin = { latitude: sourceLocation.latitude, longitude: sourceLocation.longitude };
     const destination = selectedParking.location;
     void requestRoute(vehicleType, origin, destination, (route) => {
       if (
@@ -215,6 +222,7 @@ export default function DashboardPage() {
     setIsRouting(false);
     setNavigationError(null);
     setSelectedSpot(null);
+    setPickingSourceOnMap(false);
     clearDestination();
   };
 
@@ -238,10 +246,15 @@ export default function DashboardPage() {
     <div className="relative h-full w-full overflow-hidden bg-[#e6e2d7]">
       <div className="absolute inset-0">
         <SmartParkMap
-          userLocation={position ?? null}
+          userLocation={sourceLocation ?? null}
           parkingFacilities={spots ?? []}
           selectedSpotId={selectedSpot?.id ?? null}
           onSelectSpot={handleSelectSpot}
+          sourceName={sourceSelection?.name ?? 'Your location'}
+          onMapClick={pickingSourceOnMap && (navigationStatus === 'idle' || navigationStatus === 'destination_selected') ? (location: Coordinate) => {
+            setSourceSelection({ name: 'Pinned location', location });
+            setPickingSourceOnMap(false);
+          } : undefined}
         />
       </div>
 
@@ -263,6 +276,14 @@ export default function DashboardPage() {
           </span>
         </div>
         <DestinationSearch bias={searchBias} />
+        <SourceLocationSearch
+          currentLocation={position ?? null}
+          selected={sourceSelection}
+          onSelect={(source) => { setSourceSelection(source); setPickingSourceOnMap(false); }}
+          pickingOnMap={pickingSourceOnMap}
+          onToggleMapPick={() => setPickingSourceOnMap((value) => !value)}
+          disabled={navigationStatus !== 'idle' && navigationStatus !== 'destination_selected'}
+        />
         {locationLoading && (
           <p role="status" className="mt-3 flex items-center gap-2 text-xs text-[#625d51]">
             <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
@@ -279,7 +300,7 @@ export default function DashboardPage() {
 
       <aside
         aria-label="Journey and parking recommendations"
-        className="absolute inset-x-0 bottom-0 z-[900] max-h-[53dvh] overflow-y-auto rounded-t-2xl border border-[#d8d0c0] bg-[#fffdf8]/95 p-3 shadow-[0_-8px_32px_rgba(48,41,20,0.12)] backdrop-blur-sm sm:inset-x-4 sm:bottom-4 sm:max-h-[48dvh] sm:rounded-2xl sm:p-4 lg:bottom-4 lg:left-4 lg:top-[12rem] lg:w-[25rem] lg:max-h-none"
+        className="absolute inset-x-0 bottom-0 z-[900] max-h-[53dvh] overflow-y-auto rounded-t-2xl border border-[#d8d0c0] bg-[#fffdf8]/95 p-3 shadow-[0_-8px_32px_rgba(48,41,20,0.12)] backdrop-blur-sm sm:inset-x-4 sm:bottom-4 sm:max-h-[48dvh] sm:rounded-2xl sm:p-4 lg:bottom-4 lg:left-4 lg:top-[20rem] lg:w-[25rem] lg:max-h-none"
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[#c8beaa] lg:hidden" />
         <div className="space-y-4">
@@ -329,15 +350,15 @@ export default function DashboardPage() {
                       Parking: {selectedParking.name || 'Selected parking'}
                     </p>
                   )}
-                  {!position && (
+                  {!sourceLocation && (
                     <p role="alert" className="text-sm text-[#8c2f24]">
-                      Allow location access to start driving navigation.
+                      Choose a starting location to start driving navigation.
                     </p>
                   )}
                   <Button
                     type="button"
                     className="min-h-11 w-full"
-                    disabled={!position || !selectedParking || isRouting}
+                    disabled={!sourceLocation || !selectedParking || isRouting}
                     onClick={handleStartDriving}
                   >
                     {isRouting ? 'Finding route…' : 'Start driving'}
@@ -419,13 +440,13 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
-          <section aria-labelledby="recommendations-heading" className="space-y-3">
+          {selectedDestination && <section aria-labelledby="recommendations-heading" className="space-y-3">
             <div className="flex items-baseline justify-between gap-3 px-1">
               <h2 id="recommendations-heading" className="text-base font-semibold text-[#273b2b]">
-                {selectedDestination ? 'Parking near destination' : 'Nearby parking'}
+                Parking near destination
               </h2>
               <span className="text-xs text-[#625d51]">
-                {spots?.length ?? 0} options · top five
+                {spots?.length ?? 0} options · within the closest search area
               </span>
             </div>
             {spotsLoading ? (
@@ -437,10 +458,6 @@ export default function DashboardPage() {
               <p role="alert" className="rounded-lg bg-[#f7e6e1] p-3 text-sm text-[#8c2f24]">
                 Parking recommendations are unavailable
                 {spotsError instanceof Error ? `: ${spotsError.message}` : '.'}
-              </p>
-            ) : !nearbyCenter ? (
-              <p className="rounded-lg bg-[#f1eee5] p-3 text-sm text-[#625d51]">
-                Search for a destination to see nearby parking.
               </p>
             ) : spots && spots.length > 0 ? (
               <ul className="space-y-2">
@@ -504,7 +521,7 @@ export default function DashboardPage() {
                 No compatible parking facilities were found nearby.
               </p>
             )}
-          </section>
+          </section>}
         </div>
       </aside>
     </div>

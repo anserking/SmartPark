@@ -6,9 +6,12 @@ vehicle-compatible facility, drive to it, confirm parking, and continue on foot.
 ## MVP features
 
 - Destination search and autocomplete powered by Google Places (New).
-- Nearby Google parking discovery with car/bike compatibility filtering.
-- Top-five recommendations ranked by straight-line distance to the destination.
+- Destination-specific Google parking discovery, starting within 300 m and
+  expanding only when no closer parking is found. Named car parks are recovered
+  by text search even when Google classifies them under a different place type.
+- Up to five recommendations ranked by straight-line distance to the destination.
 - A Google map with destination, user, parking, driving, and walking layers.
+- A selectable starting location using your position, place search, or a map pin.
 - A guarded drive → park → walk → arrive navigation flow using Google Routes.
 - Admin-key-protected parking record management for create, edit, verify,
   unavailable, and delete actions.

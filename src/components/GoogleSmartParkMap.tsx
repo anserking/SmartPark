@@ -4,7 +4,8 @@ import type { Coordinate, ParkingRecommendation } from '@/types/smartpark';
 
 export type Point = { lat: number; lng: number };
 export type Overlay = { setMap(map: null): void };
-export type MapView = { setCenter(point: Point): void; fitBounds(bounds: Bounds): void };
+type MapClickEvent = { latLng?: { lat(): number; lng(): number } };
+export type MapView = { setCenter(point: Point): void; fitBounds(bounds: Bounds): void; addListener(event: string, callback: (event: MapClickEvent) => void): { remove(): void } };
 export type Marker = Overlay & { addListener(event: string, callback: () => void): void; getPosition(): { lat(): number; lng(): number } | null };
 export type Bounds = { extend(point: Point): void };
 export type MapsApi = {
@@ -48,16 +49,20 @@ const point = (location: Coordinate): Point => ({
 
 type Props = {
   userLocation: Coordinate | null;
+  sourceName?: string;
   parkingFacilities: ParkingRecommendation[];
   selectedSpotId: string | null;
   onSelectSpot: (spot: ParkingRecommendation) => void;
+  onMapClick?: (location: Coordinate) => void;
 };
 
 export default function GoogleSmartParkMap({
   userLocation,
+  sourceName,
   parkingFacilities,
   selectedSpotId,
   onSelectSpot,
+  onMapClick,
 }: Props) {
   const elementRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapView | null>(null);
@@ -89,6 +94,16 @@ export default function GoogleSmartParkMap({
   }, []);
 
   useEffect(() => {
+    if (!maps || !mapRef.current || !onMapClick) return;
+    const listener = mapRef.current.addListener('click', (event) => {
+      if (event.latLng) {
+        onMapClick({ latitude: event.latLng.lat(), longitude: event.latLng.lng() });
+      }
+    });
+    return () => listener.remove();
+  }, [maps, onMapClick]);
+
+  useEffect(() => {
     if (!maps || !mapRef.current) return;
     const map = mapRef.current;
     for (const overlay of overlaysRef.current) overlay.setMap(null);
@@ -100,7 +115,7 @@ export default function GoogleSmartParkMap({
     };
     const center = selectedDestination?.location ?? userLocation;
     if (center) map.setCenter(point(center));
-    if (userLocation) addMarker(userLocation, 'U', 'Your location');
+    if (userLocation) addMarker(userLocation, sourceName === 'Your location' ? 'U' : 'S', sourceName ?? 'Starting location');
     if (selectedDestination) {
       addMarker(selectedDestination.location, 'D', selectedDestination.name);
     }
@@ -128,7 +143,7 @@ export default function GoogleSmartParkMap({
       for (const overlay of overlaysRef.current) overlay.setMap(null);
       overlaysRef.current = [];
     };
-  }, [maps, userLocation, parkingFacilities, selectedSpotId, onSelectSpot, selectedDestination, selectedParking, status, route]);
+  }, [maps, userLocation, sourceName, parkingFacilities, selectedSpotId, onSelectSpot, selectedDestination, selectedParking, status, route]);
 
   return (
     <div className="h-full w-full">

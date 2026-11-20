@@ -179,6 +179,7 @@ async def recommend_parking(
     vehicle_type: Annotated[Literal["car", "bike"], Query()] = "car",
     radius_meters: Annotated[int, Query(ge=100, le=50000)] = 2000,
     limit: Annotated[int, Query(ge=1, le=5)] = 5,
+    destination_name: Annotated[str | None, Query(min_length=2, max_length=150)] = None,
     user_latitude: Annotated[float | None, Query(ge=-90, le=90)] = None,
     user_longitude: Annotated[float | None, Query(ge=-180, le=180)] = None,
     db: Session = Depends(get_db),
@@ -195,6 +196,7 @@ async def recommend_parking(
             latitude,
             longitude,
             radius_meters=radius_meters,
+            destination_name=destination_name,
         )
     except GeographicProviderError as exc:
         if exc.status_code == 429:
@@ -281,11 +283,28 @@ async def recommend_parking(
             source=spot.source,
         )
 
+    candidate_details = list(details_by_id.values())
+    for nearby_radius in (300, 600, 1000, 2000, radius_meters):
+        if nearby_radius > radius_meters:
+            continue
+        close_details = [
+            details for details in candidate_details
+            if (details.candidate.supports_car if vehicle_type == "car"
+                else details.candidate.supports_bike) is not False
+            if _straight_line_distance_meters(
+                latitude, longitude,
+                details.candidate.latitude, details.candidate.longitude,
+            ) <= nearby_radius
+        ]
+        if close_details:
+            candidate_details = close_details
+            break
+
     ranked = rank_parking_recommendations(
         destination_latitude=latitude,
         destination_longitude=longitude,
         candidates=[
-            details.candidate for details in details_by_id.values()
+            details.candidate for details in candidate_details
         ],
         vehicle_type=vehicle_type,
         node_locations={},

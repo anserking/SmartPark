@@ -22,6 +22,7 @@ class StubPlaces:
         latitude: float,
         longitude: float,
         radius_meters: int,
+        destination_name: str | None = None,
     ) -> tuple[NormalizedParking, ...]:
         self.request = (latitude, longitude, radius_meters)
         if self.error is not None:
@@ -158,3 +159,32 @@ def test_recommendations_filter_vehicle_compatibility_and_label_fallback() -> No
     assert [spot["id"] for spot in payload["results"]] == ["node/car"]
     assert payload["results"][0]["destinationDistanceMethod"] == "straight_line"
     assert payload["results"][0]["userDistanceMeters"] > 0
+
+
+def test_recommendations_keep_closest_search_area() -> None:
+    class EmptySession:
+        def scalars(self, _statement: object):
+            class Result:
+                def all(self) -> list[object]:
+                    return []
+            return Result()
+
+    provider = StubPlaces(facilities=(
+        _facility("google/near", 67.088, 24.894, "Bahria University Car Park"),
+        _facility("google/far", 67.098, 24.898, "Far parking"),
+    ))
+    app.dependency_overrides[get_google_places_client] = lambda: provider
+    app.dependency_overrides[get_db] = lambda: (yield EmptySession())
+    try:
+        with TestClient(app) as client:
+            response = client.get("/api/parking/recommendations", params={
+                "latitude": 24.893277, "longitude": 67.0881814,
+                "destination_name": "Bahria University Karachi",
+            })
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert [spot["name"] for spot in response.json()["results"]] == [
+        "Bahria University Car Park"
+    ]

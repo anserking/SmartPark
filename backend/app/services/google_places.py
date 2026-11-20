@@ -1,6 +1,7 @@
 """Transient Google Places lookups for destinations and nearby parking."""
 
 from dataclasses import dataclass
+import math
 from typing import Any
 
 import httpx
@@ -62,6 +63,7 @@ class GooglePlacesClient:
         longitude: float,
         radius_meters: int = 2000,
         limit: int = 20,
+        destination_name: str | None = None,
     ) -> tuple[NormalizedParking, ...]:
         validate_coordinate(longitude, latitude)
         if not 100 <= radius_meters <= 50_000 or not 1 <= limit <= 20:
@@ -77,7 +79,27 @@ class GooglePlacesClient:
                 }
             },
         }
-        places = await self._search("searchNearby", body)
+        places = list(await self._search("searchNearby", body))
+        if destination_name and destination_name.strip():
+            text_places = await self._search(
+                "searchText",
+                {
+                    "textQuery": f"parking near {' '.join(destination_name.split())}",
+                    "maxResultCount": 20,
+                    "regionCode": "PK",
+                    "locationBias": {
+                        "circle": {
+                            "center": {"latitude": latitude, "longitude": longitude},
+                            "radius": float(radius_meters),
+                        }
+                    },
+                },
+            )
+            places.extend(
+                place for place in text_places
+                if self._is_parking_place(place)
+            )
+        unique_places = {place.place_id: place for place in places}
         return tuple(
             NormalizedParking(
                 osm_id=f"google/{place.place_id}",
@@ -95,8 +117,36 @@ class GooglePlacesClient:
                 tags={"addr:full": place.address} if place.address else {},
                 source="google_maps",
             )
-            for place in places
+            for place in unique_places.values()
+            if self._distance_meters(
+                latitude, longitude, place.latitude, place.longitude
+            ) <= radius_meters
         )
+
+    @staticmethod
+    def _is_parking_place(place: GooglePlace) -> bool:
+        name = place.name.casefold()
+        return (
+            "parking" in place.types
+            or "parking_lot" in place.types
+            or "parking" in name
+            or "car park" in name
+            or "carpark" in name
+        )
+
+    @staticmethod
+    def _distance_meters(
+        latitude_a: float, longitude_a: float, latitude_b: float, longitude_b: float
+    ) -> float:
+        latitude_delta = math.radians(latitude_b - latitude_a)
+        longitude_delta = math.radians(longitude_b - longitude_a)
+        haversine = (
+            math.sin(latitude_delta / 2) ** 2
+            + math.cos(math.radians(latitude_a))
+            * math.cos(math.radians(latitude_b))
+            * math.sin(longitude_delta / 2) ** 2
+        )
+        return 12_742_000 * math.asin(min(1, math.sqrt(haversine)))
 
     async def _search(
         self, method: str, body: dict[str, Any]

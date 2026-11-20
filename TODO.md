@@ -76,7 +76,7 @@ checked.
     - Depends on: `google-maps-platform`
     - Re-run destination search, nearby parking, recommendations, driving/walking routes, and the complete search-to-arrival flow against the migrated providers.
     - Update and run focused frontend/backend checks, then confirm local setup and production build.
-    - Passing: 50 backend tests, 9 frontend tests, and production build. The live local API returned 200 for Bahria University search, top-five Google parking recommendations, and both driving and walking Google routes. The frontend navigation-state tests cover parking confirmation and arrival.
+    - Passing: 52 backend tests, 10 frontend tests, and production build. The live local API returned 200 for Bahria University search, Google parking recommendations, and both driving and walking Google routes. Destination-specific search now finds Bahria University Car Park first within 300 m; parking discovery waits for a selected destination, and the starting location can be searched, geolocated, or pinned on the map.
 
 18. [ ] **Deploy the documented MVP** (`documentation-deployment`)
     - Depends on: `post-provider-integration-testing`
