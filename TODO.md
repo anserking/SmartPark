@@ -1,10 +1,9 @@
 # SmartPark project todos
 
-These are the project tasks tracked for completing the MVP. The repository
-audit, architecture decisions, backend/database foundation, and geographic data
-services, DSA algorithms, and frontend foundation are complete; remaining tasks
-are pending or in progress. Dependencies
-are listed so the work can be sequenced without blocking independent tasks.
+These are the project tasks tracked for completing the MVP. Core implementation,
+verification, and deployment documentation are complete. Remaining work is
+ordered by dependency: Google Maps migration, post-migration verification, then
+deployment.
 
 Repository setup: the source is cloned into this folder. `origin` points to
 `https://github.com/anserking/SmartPark.git`; `upstream` retains the original
@@ -65,13 +64,19 @@ checked.
 15. [ ] **Verifying the complete SmartPark journey** (`integration-testing`)
     - Depends on: `dsa-engine`, `navigation-workflow`, `parking-administration`, `pwa-ux-revamp`
     - Test search/geodata, DSA edge cases, recommendations, routes, navigation transitions, and admin CRUD; exercise and fix the complete search-to-arrival journey.
-16. [ ] **Documenting and deploying the MVP** (`documentation-deployment`)
-    - Depends on: `integration-testing`
-    - Update setup, architecture, database, algorithms, attribution, environment-variable, and limitation documentation. Deploy the frontend/backend/database and verify the public demo without exposing API keys.
+16. [ ] **Complete a terms-compliant Google Maps migration** (`google-maps-platform`)
+    - Depends on: `interactive-map`, `destination-search`, `parking-recommendations`, `routing-integration`
+    - Replace Leaflet/OpenStreetMap in views that show Google Places or Geocoding content; review route and road-distance layers for the same compatibility requirement.
+    - Stop shared persistent storage and indexing of Google place names and addresses; follow Google’s data-retention and attribution rules.
+    - Requires a separate browser-restricted Maps JavaScript API key, Places API (New) enabled, and appropriate billing/quota controls. Keep the existing key server-side.
+    - Blocked until the browser key and Google-compatible map/data flow are ready. Google’s current service terms prohibit using Places or Geocoding API content with a non-Google map.
 
-17. [ ] **Complete a terms-compliant Google Maps migration** (`google-maps-platform`)
-    - Use Google Places API (New) for destination search and nearby parking only alongside a Google map; replace the current Leaflet/OpenStreetMap map for views showing Google place data.
-    - Review routing and road-distance features so Google place content is not combined with non-Google map content.
-    - Remove shared persistent storage/indexing of Google place names and addresses; retain only data permitted by Google Maps Platform terms and caching rules.
-    - Requires a separate browser-restricted Maps JavaScript API key, Places API (New) enabled, appropriate billing/quota controls, and Google Maps attribution. Keep the existing key server-side.
-    - Blocked until the map, data handling, and browser key are migrated; Google’s current service terms prohibit using Places or Geocoding API content with a non-Google map.
+17. [ ] **Re-verify the journey after the provider migration** (`post-provider-integration-testing`)
+    - Depends on: `google-maps-platform`
+    - Re-run destination search, nearby parking, recommendations, driving/walking routes, and the complete search-to-arrival flow against the migrated providers.
+    - Update and run focused frontend/backend checks, then confirm local setup and production build.
+
+18. [ ] **Deploy the documented MVP** (`documentation-deployment`)
+    - Depends on: `post-provider-integration-testing`
+    - Deployment documentation and container/static-host configuration are complete.
+    - Choose a hosting target, configure production database and provider keys, deploy frontend and API, apply migrations, and verify the public journey.
